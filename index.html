@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的第一個網頁</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif; background: #f4f7fb; color: #203047; }
+    header { padding: 72px 24px; text-align: center; color: white; background: linear-gradient(135deg, #2057a5, #43a7bf); }
+    h1 { font-size: clamp(2rem, 5vw, 3rem); margin: 0 0 16px; }
+    header p { font-size: 1.1rem; opacity: .95; }
+    main { max-width: 820px; margin: -32px auto 60px; padding: 0 20px; }
+    .card { background: white; border-radius: 18px; padding: 32px; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(32, 48, 71, .1); }
+    h2 { color: #2057a5; }
+    button { border: 0; border-radius: 10px; background: #2057a5; color: #fff; padding: 13px 22px; font-size: 1rem; cursor: pointer; }
+    button:hover { background: #163d76; }
+    #message { font-weight: bold; color: #176c68; min-height: 1.5em; }
+    footer { text-align: center; padding: 20px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>歡迎來到我的第一個網頁！</h1>
+    <p>這是使用 HTML、CSS 和 JavaScript 製作的簡單示範頁面。</p>
+  </header>
+  <main>
+    <section class="card">
+      <h2>關於這個網站</h2>
+      <p>這個網站已經放在我的 GitHub test Repository。未來可以自由修改文字、顏色、圖片，逐步打造自己的網站。</p>
+    </section>
+    <section class="card">
+      <h2>試試互動功能</h2>
+      <p>點擊下方按鈕，看看 JavaScript 的效果：</p>
+      <button type="button" id="helloBtn">點我打招呼</button>
+      <p id="message" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <footer>© 2026 我的第一個網頁 · Made with HTML</footer>
+  <script>
+    document.getElementById("helloBtn").addEventListener("click", function () {
+      document.getElementById("message").textContent = "你好！恭喜完成第一個互動式網頁 🎉";
+    });
+  </script>
+</body>
+</html>
