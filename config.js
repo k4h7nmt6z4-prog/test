@@ -3,6 +3,6 @@
 // 絕對不要放 secret 金鑰（sb_secret_ 開頭）或 service_role 金鑰：它們會繞過所有安全規則。
 window.APP_CONFIG = {
   SUPABASE_URL: "https://cmoxecaubyclpcbizffq.supabase.co",
-  // 請換成 Supabase 後台「Project Settings → API Keys」裡的 publishable key（sb_publishable_ 開頭）
-  SUPABASE_PUBLISHABLE_KEY: "請填入你的 publishable key",
+  // Supabase 後台「Project Settings → API Keys」裡的 publishable key（sb_publishable_ 開頭）
+  SUPABASE_PUBLISHABLE_KEY: "sb_publishable_c-0Zwi2lsxDYxnOh19ZxoA_SlJdgRzQ",
 };
