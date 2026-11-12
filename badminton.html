@@ -66,6 +66,28 @@
       <p id="waitlistEmpty" class="message info">目前沒有候補。</p>
       <ol id="waitlist" class="player-list"></ol>
     </section>
+    <section class="card" aria-labelledby="admin-title">
+      <details id="adminBox">
+        <summary id="admin-title">管理員</summary>
+        <form id="loginForm" class="admin-form" novalidate>
+          <p class="note">登入後可以在名單上點選「已繳費／未繳費」切換狀態。</p>
+          <div class="field">
+            <label for="adminEmail">Email</label>
+            <input id="adminEmail" type="email" autocomplete="username" required>
+          </div>
+          <div class="field">
+            <label for="adminPassword">密碼</label>
+            <input id="adminPassword" type="password" autocomplete="current-password" required>
+          </div>
+          <button type="submit" id="loginBtn">登入</button>
+        </form>
+        <div id="adminPanel" hidden>
+          <p id="adminWho" class="note"></p>
+          <button type="button" id="logoutBtn" class="secondary">登出</button>
+        </div>
+        <p id="adminMessage" class="message" role="status" aria-live="polite"></p>
+      </details>
+    </section>
   </main>
 
   <footer class="site-footer"><a href="index.html">前往報修登記</a></footer>

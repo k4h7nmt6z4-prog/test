@@ -63,11 +63,13 @@
     return;
   }
 
+  // 保留登入狀態，管理員重新整理頁面後不用再登入
   var client = window.supabase.createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: "badminton-admin-auth" },
   });
 
   var rows = [];
+  var isAdmin = false;
 
   var timeFmt = new Intl.DateTimeFormat("zh-TW", {
     timeZone: "Asia/Taipei",
@@ -101,9 +103,17 @@
     name.textContent = r.name;
     top.appendChild(name);
 
-    var paid = document.createElement("span");
+    // 管理員看到的是可點選的按鈕，其他人只看到標籤
+    var paid = document.createElement(isAdmin ? "button" : "span");
     paid.className = "badge " + (r.paid ? "paid" : "unpaid");
     paid.textContent = r.paid ? "已繳費" : "未繳費";
+    if (isAdmin) {
+      paid.type = "button";
+      paid.classList.add("toggle");
+      paid.setAttribute("aria-pressed", r.paid ? "true" : "false");
+      paid.setAttribute("aria-label", r.name + "：" + paid.textContent + "，點選切換");
+      paid.addEventListener("click", function () { togglePaid(r, paid); });
+    }
     top.appendChild(paid);
     li.appendChild(top);
 
@@ -221,5 +231,107 @@
   });
 
   refreshBtn.addEventListener("click", loadList);
-  loadList();
+
+  // ---- 管理員：切換繳費狀態 ----
+  async function togglePaid(r, btn) {
+    var next = !r.paid;
+    btn.disabled = true;
+    btn.textContent = "更新中…";
+    try {
+      // 加上 select 才能確認真的改到一筆；權限不足時資料庫會回傳 0 筆
+      var res = await client
+        .from(TABLE)
+        .update({ status: next ? PAID_STATUS : "待處理" })
+        .eq("id", r.id)
+        .eq("location", MARK_LOCATION)
+        .select("id, status");
+      if (res.error) throw res.error;
+      if (!res.data || res.data.length !== 1) {
+        throw { message: "沒有修改權限，請確認這個帳號已設為管理員。" };
+      }
+      r.paid = res.data[0].status === PAID_STATUS;
+      render();
+      show(listMessage, "已將「" + r.name + "」改為" + (r.paid ? "已繳費" : "未繳費") + "。", "ok");
+    } catch (err) {
+      render();
+      show(listMessage, "更新失敗：" + describeError(err), "err");
+    }
+  }
+
+  // ---- 管理員：登入／登出 ----
+  var loginForm = $("loginForm");
+  var loginBtn = $("loginBtn");
+  var adminPanel = $("adminPanel");
+  var adminMessage = $("adminMessage");
+
+  async function applySession(session) {
+    var wasAdmin = isAdmin;
+    isAdmin = false;
+    if (session && session.user) {
+      var res = await client
+        .from("badminton_admins")
+        .select("user_id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      isAdmin = !res.error && !!res.data;
+      loginForm.hidden = true;
+      adminPanel.hidden = false;
+      $("adminWho").textContent = "已登入：" + (session.user.email || "") +
+        (isAdmin ? "（管理員）" : "");
+      if (!isAdmin) {
+        var why = res.error && (res.error.code === "42P01" || res.error.code === "PGRST205")
+          ? "尚未執行 supabase/badminton_admin.sql。"
+          : "這個帳號不是管理員，無法修改繳費狀態。";
+        show(adminMessage, why, "err");
+      } else {
+        show(adminMessage, "可以點選名單上的「已繳費／未繳費」切換。", "ok");
+        $("adminBox").open = true;
+      }
+    } else {
+      loginForm.hidden = false;
+      adminPanel.hidden = true;
+    }
+    if (wasAdmin !== isAdmin && rows.length) render();
+  }
+
+  loginForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var email = $("adminEmail").value.trim();
+    var password = $("adminPassword").value;
+    if (!email || !password) {
+      show(adminMessage, "請輸入 Email 和密碼。", "err");
+      return;
+    }
+    loginBtn.disabled = true;
+    loginBtn.textContent = "登入中…";
+    show(adminMessage, "", "");
+    try {
+      var res = await client.auth.signInWithPassword({ email: email, password: password });
+      if (res.error) {
+        var msg = /invalid login credentials/i.test(res.error.message) ? "Email 或密碼錯誤。"
+          : /email not confirmed/i.test(res.error.message) ? "這個帳號的 Email 尚未確認。"
+          : res.error.message;
+        show(adminMessage, "登入失敗：" + msg, "err");
+        return;
+      }
+      $("adminPassword").value = "";
+      await applySession(res.data.session);
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = "登入";
+    }
+  });
+
+  $("logoutBtn").addEventListener("click", async function () {
+    await client.auth.signOut();
+    show(adminMessage, "已登出。", "info");
+    await applySession(null);
+  });
+
+  // 先確認是否已經登入，再載入名單
+  client.auth.getSession().then(function (res) {
+    return applySession(res.data && res.data.session);
+  }).catch(function () {
+    return applySession(null);
+  }).then(loadList);
 })();
