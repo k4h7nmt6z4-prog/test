@@ -1,8 +1,20 @@
 // 羽球報名前端：報名、正取／候補名單、人數與繳費統計。
+//
+// 資料沿用報修資料表 repair_requests（不需另外建表），欄位對應如下：
+//   reporter_name  → 名字
+//   description    → 程度備註（沒填時存「未填」，因為這欄必填）
+//   location       → 固定為「羽球報名」，用來和一般報修資料區分
+//   category       → 固定為「其他」
+//   status         → 「已完成」代表已繳費，其他狀態都算未繳費
+//                     （管理員在 Supabase 後台把 status 改成「已完成」）
 (function () {
   "use strict";
 
-  var TABLE = "badminton_signups";
+  var TABLE = "repair_requests";
+  var MARK_LOCATION = "羽球報名";
+  var MARK_CATEGORY = "其他";
+  var NOTE_EMPTY = "未填";
+  var PAID_STATUS = "已完成";
   var MAX_ROWS = 200;
 
   var cfg = window.APP_CONFIG || {};
@@ -67,7 +79,7 @@
     if (!err) return "未知錯誤";
     if (err.code === "23514") return "內容不符合規定（例如名字太長）。";
     if (err.code === "42501") return "沒有權限，請確認資料庫的權限與安全規則已設定。";
-    if (err.code === "42P01" || err.code === "PGRST205") return "找不到資料表，請確認已執行 supabase/badminton.sql。";
+    if (err.code === "42P01" || err.code === "PGRST205") return "找不到資料表，請確認已執行 supabase/schema.sql。";
     return err.message || String(err);
   }
 
@@ -133,12 +145,22 @@
       // 依報名時間由早到晚排序：前 capacity 名正取，其餘候補
       var res = await client
         .from(TABLE)
-        .select("id, created_at, name, level_note, paid")
+        .select("id, created_at, reporter_name, description, status")
+        .eq("location", MARK_LOCATION)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .limit(MAX_ROWS);
       if (res.error) throw res.error;
-      rows = res.data;
+      // 轉成羽球報名用的欄位
+      rows = res.data.map(function (r) {
+        return {
+          id: r.id,
+          created_at: r.created_at,
+          name: r.reporter_name,
+          level_note: r.description === NOTE_EMPTY ? null : r.description,
+          paid: r.status === PAID_STATUS,
+        };
+      });
       render();
       return true;
     } catch (err) {
@@ -168,8 +190,13 @@
     submitBtn.textContent = "送出中…";
     show(formMessage, "", "");
     try {
-      // 不送 paid：由資料庫預設為未繳費
-      var res = await client.from(TABLE).insert({ name: name, level_note: note || null });
+      // 不送 status：由資料庫預設為「待處理」，也就是未繳費
+      var res = await client.from(TABLE).insert({
+        reporter_name: name,
+        location: MARK_LOCATION,
+        category: MARK_CATEGORY,
+        description: note || NOTE_EMPTY,
+      });
       if (res.error) throw res.error;
 
       form.reset();
