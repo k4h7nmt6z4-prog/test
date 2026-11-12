@@ -96,7 +96,7 @@ button {
 button[type="submit"] { width: 100%; font-size: 1.05rem; }
 button:hover:not(:disabled) { background: var(--primary-dark); }
 button:disabled { opacity: .55; cursor: not-allowed; }
-button.secondary { background: #e2e8f0; color: var(--text); padding: 8px 14px; min-height: 40px; }
+button.secondary { white-space: nowrap; flex-shrink: 0; background: #e2e8f0; color: var(--text); padding: 8px 14px; min-height: 40px; }
 button.secondary:hover:not(:disabled) { background: #cbd5e1; }
 
 .message { margin: 12px 0 0; border-radius: 10px; }
@@ -121,3 +121,24 @@ button.secondary:hover:not(:disabled) { background: #cbd5e1; }
 .item-meta { font-size: .875rem; color: var(--muted); overflow-wrap: anywhere; }
 
 .site-footer { text-align: center; padding: 8px 16px 24px; color: var(--muted); font-size: .875rem; }
+
+/* ---- 羽球報名 ---- */
+a { color: var(--primary); }
+.optional { font-weight: 400; color: var(--muted); }
+.note { margin: 12px 0 0; font-size: .875rem; color: var(--muted); }
+
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat-label { font-size: .85rem; color: var(--muted); }
+.stat-value { font-size: 1.35rem; font-weight: 700; color: var(--primary); }
+@media (max-width: 360px) { .summary { grid-template-columns: repeat(2, 1fr); row-gap: 12px; } }
+
+.player-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.player-list li { padding: 12px 0; border-top: 1px solid #e2e8f0; }
+.player-list li:first-child { border-top: 0; }
+.player-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.player-order { font-size: .8rem; color: var(--muted); min-width: 3.5em; }
+.player-name { font-weight: 600; overflow-wrap: anywhere; flex: 1 1 auto; }
+.badge.paid { background: var(--ok-bg); color: var(--ok); }
+.badge.unpaid { background: #fff4d6; color: #8a5a00; }
+[hidden] { display: none !important; }
