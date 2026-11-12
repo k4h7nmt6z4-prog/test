@@ -98,6 +98,8 @@
       var res = await client
         .from(TABLE)
         .select("id, created_at, reporter_name, location, category, description, urgency, status")
+        // 排除羽球報名（badminton.js 把報名存在同一張表，地點固定為「羽球報名」）
+        .neq("location", "羽球報名")
         .order("created_at", { ascending: false })
         .limit(LIST_LIMIT);
       if (res.error) throw res.error;
