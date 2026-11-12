@@ -225,7 +225,7 @@
           await setPaid(res.data[0].id, true);
         } catch (err2) {
           pay = "未繳費";
-          payWarn = "（繳費狀態沒有更新成功：" + describeUpdateError(err2) + "）";
+          payWarn = "但「已繳費」沒有設定成功，目前顯示為未繳費。原因：" + describeUpdateError(err2);
         }
       }
 
@@ -235,13 +235,17 @@
       for (var i = rows.length - 1; i >= 0; i--) {
         if (rows[i].name.trim() === name) { pos = i; break; }
       }
+      var msg;
       if (!ok || pos < 0) {
-        show(formMessage, "已送出報名！" + payWarn, "ok");
+        msg = "已送出報名！";
       } else if (pos < capacity) {
-        show(formMessage, "報名成功！你是正取第 " + (pos + 1) + " 位（" + pay + "）。" + payWarn, "ok");
+        msg = "報名成功！你是正取第 " + (pos + 1) + " 位（" + pay + "）。";
       } else {
-        show(formMessage, "正取已額滿，你排在候補第 " + (pos - capacity + 1) + " 位（" + pay + "）。" + payWarn, "ok");
+        msg = "正取已額滿，你排在候補第 " + (pos - capacity + 1) + " 位（" + pay + "）。";
       }
+      // 繳費狀態設定失敗時用紅色錯誤訊息，避免被忽略
+      if (payWarn) show(formMessage, msg + payWarn, "err");
+      else show(formMessage, msg, "ok");
     } catch (err) {
       show(formMessage, "報名失敗：" + describeError(err), "err");
     } finally {
