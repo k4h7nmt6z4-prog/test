@@ -7,7 +7,8 @@
 //   category       → 固定為「其他」
 //   status         → 「已完成」＝已繳費，「待處理」＝未繳費
 //
-// 任何人都能在名單上點選切換繳費狀態（需先執行 supabase/badminton_paid.sql）。
+// 任何人都能在名單上點選切換繳費狀態（需先執行 supabase/badminton_paid.sql），
+// 也能刪除名單上的人員（需先執行 supabase/badminton_delete.sql）。
 // 舊版把繳費狀態寫在 description 開頭（「已繳費｜」），執行上述 SQL 時會轉成 status；
 // 轉換前的舊資料仍可正確顯示。
 (function () {
@@ -131,6 +132,14 @@
     paid.setAttribute("aria-label", r.name + "：" + paid.textContent + "，點選切換");
     paid.addEventListener("click", function () { togglePaid(r, paid); });
     top.appendChild(paid);
+
+    var del = document.createElement("button");
+    del.type = "button";
+    del.className = "delete-btn";
+    del.textContent = "刪除";
+    del.setAttribute("aria-label", "刪除「" + r.name + "」");
+    del.addEventListener("click", function () { deletePlayer(r, del); });
+    top.appendChild(del);
     li.appendChild(top);
 
     var meta = document.createElement("div");
@@ -255,6 +264,39 @@
   });
 
   refreshBtn.addEventListener("click", loadList);
+
+  // 「＋ 新增人員」：跳到上方的報名表單
+  $("addBtn").addEventListener("click", function () {
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+    $("name").focus({ preventScroll: true });
+  });
+
+  // ---- 刪除人員 ----
+  async function deletePlayer(r, btn) {
+    if (!window.confirm("確定要刪除「" + r.name + "」嗎？刪除後無法復原。")) return;
+    btn.disabled = true;
+    btn.textContent = "刪除中…";
+    try {
+      // 加上 select 才能確認真的刪到一筆；沒有權限時可能回傳 0 筆
+      var res = await client
+        .from(TABLE)
+        .delete()
+        .eq("id", r.id)
+        .eq("location", MARK_LOCATION)
+        .select("id");
+      if (res.error) throw res.error;
+      if (!res.data || res.data.length !== 1) throw { noRows: true };
+      await loadList();
+      show(listMessage, "已刪除「" + r.name + "」。", "ok");
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "刪除";
+      var why = err && (err.code === "42501" || err.noRows)
+        ? "網頁還沒開放刪除，請先在 Supabase 執行 supabase/badminton_delete.sql。"
+        : describeError(err);
+      show(listMessage, "刪除失敗：" + why, "err");
+    }
+  }
 
   // ---- 切換繳費狀態 ----
   function describeUpdateError(err) {
