@@ -2,9 +2,18 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#2057a5">
+  <meta name="description" content="羽球報名：正取／候補名單、繳費狀態與程度備註">
   <title>羽球報名</title>
+  <!-- PWA：加到主畫面後像 App 一樣開啟 -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="羽球報名">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,6 +23,19 @@
   </header>
 
   <main>
+    <p id="offlineBar" class="offline-bar" role="status" hidden>目前沒有網路連線，名單可能不是最新的。</p>
+
+    <section id="installCard" class="card install-card" hidden>
+      <div class="install-text">
+        <strong>把羽球報名加到主畫面</strong>
+        <span id="installHint">像 App 一樣，一點就開。</span>
+      </div>
+      <div class="install-actions">
+        <button type="button" id="installBtn">安裝</button>
+        <button type="button" id="installClose" class="secondary" aria-label="不要再顯示">✕</button>
+      </div>
+    </section>
+
     <section class="card summary" aria-label="報名人數">
       <div class="stat">
         <span class="stat-label">正取</span>
@@ -87,5 +109,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script src="config.js"></script>
   <script src="badminton.js"></script>
+  <script src="pwa.js"></script>
 </body>
 </html>

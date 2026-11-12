@@ -82,6 +82,7 @@
   });
 
   function describeError(err) {
+    if (!navigator.onLine) return "目前沒有網路連線，請連上網路後再試一次。";
     if (!err) return "未知錯誤";
     if (err.code === "23514") return "內容不符合規定（例如名字太長）。";
     if (err.code === "42501") return "沒有權限，請確認資料庫的權限與安全規則已設定。";

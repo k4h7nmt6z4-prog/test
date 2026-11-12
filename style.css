@@ -175,3 +175,25 @@ button.delete-btn {
   cursor: pointer;
 }
 button.delete-btn:hover:not(:disabled) { background: var(--err-bg); }
+
+/* ---- PWA：安裝提示與離線提示 ---- */
+.offline-bar {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff4d6;
+  color: #8a5a00;
+  font-weight: 600;
+  position: relative;
+}
+.install-card { display: flex; align-items: center; gap: 12px; }
+.install-card[hidden] { display: none; }
+.install-text { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.install-text span { font-size: .9rem; color: var(--muted); }
+.install-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.install-actions button:not(.secondary) { padding: 10px 18px; min-height: 44px; }
+.install-actions .secondary { min-width: 44px; min-height: 44px; padding: 0 12px; }
+/* 已安裝成 App 時，頂部留出系統狀態列的空間 */
+@media (display-mode: standalone) {
+  .site-header { padding-top: calc(32px + env(safe-area-inset-top)); }
+}
