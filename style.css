@@ -143,22 +143,4 @@ a { color: var(--primary); }
 .badge.unpaid { background: #fff4d6; color: #8a5a00; }
 [hidden] { display: none !important; }
 
-/* ---- 羽球報名：管理員 ---- */
-details summary { cursor: pointer; font-weight: 700; color: var(--primary); font-size: 1.1rem; padding: 4px 0; }
-details[open] summary { margin-bottom: 8px; }
-.admin-form .note { margin-top: 0; }
-button.badge.toggle {
-  font: inherit;
-  font-size: .9rem;
-  font-weight: 600;
-  min-height: 36px;
-  padding: 4px 14px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-  cursor: pointer;
-}
-button.badge.toggle.paid { background: var(--ok-bg); color: var(--ok); }
-button.badge.toggle.unpaid { background: #fff4d6; color: #8a5a00; }
-button.badge.toggle:hover:not(:disabled) { filter: brightness(.95); background-color: inherit; }
-button.badge.toggle.paid:hover:not(:disabled) { background: #d3eedf; }
-button.badge.toggle.unpaid:hover:not(:disabled) { background: #ffe9ad; }
+.segmented.two { grid-template-columns: repeat(2, 1fr); }

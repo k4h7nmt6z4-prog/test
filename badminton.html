@@ -46,10 +46,20 @@
           <input id="level_note" name="level_note" type="text" maxlength="100" placeholder="例如：初學、會打雙打、中階">
         </div>
 
+        <fieldset class="field">
+          <legend>繳費狀態</legend>
+          <div class="segmented two">
+            <input type="radio" id="pay-no" name="pay" value="未繳費" checked>
+            <label for="pay-no">未繳費</label>
+            <input type="radio" id="pay-yes" name="pay" value="已繳費">
+            <label for="pay-yes">已繳費</label>
+          </div>
+        </fieldset>
+
         <button type="submit" id="submitBtn">送出報名</button>
         <p id="formMessage" class="message" role="status" aria-live="polite"></p>
       </form>
-      <p class="note">報名後若要取消或已經繳費，請聯絡管理員處理。</p>
+      <p class="note">報名後若要取消或更改繳費狀態，請聯絡管理員處理。</p>
     </section>
 
     <section class="card" aria-labelledby="confirmed-title">
@@ -65,28 +75,6 @@
       <h2 id="waitlist-title">候補名單</h2>
       <p id="waitlistEmpty" class="message info">目前沒有候補。</p>
       <ol id="waitlist" class="player-list"></ol>
-    </section>
-    <section class="card" aria-labelledby="admin-title">
-      <details id="adminBox">
-        <summary id="admin-title">管理員</summary>
-        <form id="loginForm" class="admin-form" novalidate>
-          <p class="note">登入後可以在名單上點選「已繳費／未繳費」切換狀態。</p>
-          <div class="field">
-            <label for="adminEmail">Email</label>
-            <input id="adminEmail" type="email" autocomplete="username" required>
-          </div>
-          <div class="field">
-            <label for="adminPassword">密碼</label>
-            <input id="adminPassword" type="password" autocomplete="current-password" required>
-          </div>
-          <button type="submit" id="loginBtn">登入</button>
-        </form>
-        <div id="adminPanel" hidden>
-          <p id="adminWho" class="note"></p>
-          <button type="button" id="logoutBtn" class="secondary">登出</button>
-        </div>
-        <p id="adminMessage" class="message" role="status" aria-live="polite"></p>
-      </details>
     </section>
   </main>
 

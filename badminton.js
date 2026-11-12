@@ -2,11 +2,14 @@
 //
 // 資料沿用報修資料表 repair_requests（不需另外建表），欄位對應如下：
 //   reporter_name  → 名字
-//   description    → 程度備註（沒填時存「未填」，因為這欄必填）
+//   description    → 「繳費狀態｜程度備註」，例如「已繳費｜中階」「未繳費｜未填」
+//                     （這欄必填，所以程度沒填時存「未填」）
 //   location       → 固定為「羽球報名」，用來和一般報修資料區分
 //   category       → 固定為「其他」
-//   status         → 「已完成」代表已繳費，其他狀態都算未繳費
-//                     （管理員在 Supabase 後台把 status 改成「已完成」）
+//   status         → 不由網頁送出；管理員在後台改成「已完成」也算已繳費
+//
+// 繳費狀態由報名者在表單上自行選擇，沒有人工核對。
+// 管理員要更正時，在 Supabase 後台修改 description 開頭的「已繳費／未繳費」。
 (function () {
   "use strict";
 
@@ -15,6 +18,8 @@
   var MARK_CATEGORY = "其他";
   var NOTE_EMPTY = "未填";
   var PAID_STATUS = "已完成";
+  var SEP = "｜";
+  var PAY_RE = /^(已繳費|未繳費)｜/;
   var MAX_ROWS = 200;
 
   var cfg = window.APP_CONFIG || {};
@@ -63,13 +68,11 @@
     return;
   }
 
-  // 保留登入狀態，管理員重新整理頁面後不用再登入
   var client = window.supabase.createClient(url, key, {
-    auth: { persistSession: true, autoRefreshToken: true, storageKey: "badminton-admin-auth" },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 
   var rows = [];
-  var isAdmin = false;
 
   var timeFmt = new Intl.DateTimeFormat("zh-TW", {
     timeZone: "Asia/Taipei",
@@ -83,6 +86,21 @@
     if (err.code === "42501") return "沒有權限，請確認資料庫的權限與安全規則已設定。";
     if (err.code === "42P01" || err.code === "PGRST205") return "找不到資料表，請確認已執行 supabase/schema.sql。";
     return err.message || String(err);
+  }
+
+  // 把資料庫的一列轉成羽球報名用的欄位
+  function toPlayer(r) {
+    var desc = r.description || "";
+    var m = desc.match(PAY_RE);
+    var note = m ? desc.slice(m[0].length) : desc;
+    return {
+      id: r.id,
+      created_at: r.created_at,
+      name: r.reporter_name,
+      level_note: note === NOTE_EMPTY ? null : note,
+      // 後台把 status 改成「已完成」也算已繳費
+      paid: r.status === PAID_STATUS || (m !== null && m[1] === "已繳費"),
+    };
   }
 
   // ---- 名單 ----
@@ -103,17 +121,9 @@
     name.textContent = r.name;
     top.appendChild(name);
 
-    // 管理員看到的是可點選的按鈕，其他人只看到標籤
-    var paid = document.createElement(isAdmin ? "button" : "span");
+    var paid = document.createElement("span");
     paid.className = "badge " + (r.paid ? "paid" : "unpaid");
     paid.textContent = r.paid ? "已繳費" : "未繳費";
-    if (isAdmin) {
-      paid.type = "button";
-      paid.classList.add("toggle");
-      paid.setAttribute("aria-pressed", r.paid ? "true" : "false");
-      paid.setAttribute("aria-label", r.name + "：" + paid.textContent + "，點選切換");
-      paid.addEventListener("click", function () { togglePaid(r, paid); });
-    }
     top.appendChild(paid);
     li.appendChild(top);
 
@@ -161,16 +171,7 @@
         .order("id", { ascending: true })
         .limit(MAX_ROWS);
       if (res.error) throw res.error;
-      // 轉成羽球報名用的欄位
-      rows = res.data.map(function (r) {
-        return {
-          id: r.id,
-          created_at: r.created_at,
-          name: r.reporter_name,
-          level_note: r.description === NOTE_EMPTY ? null : r.description,
-          paid: r.status === PAID_STATUS,
-        };
-      });
+      rows = res.data.map(toPlayer);
       render();
       return true;
     } catch (err) {
@@ -186,6 +187,8 @@
     e.preventDefault();
     var name = $("name").value.trim();
     var note = $("level_note").value.trim();
+    var payChoice = form.querySelector('input[name="pay"]:checked');
+    var pay = payChoice ? payChoice.value : "未繳費";
 
     if (!name) {
       show(formMessage, "請填寫名字。", "err");
@@ -200,12 +203,12 @@
     submitBtn.textContent = "送出中…";
     show(formMessage, "", "");
     try {
-      // 不送 status：由資料庫預設為「待處理」，也就是未繳費
+      // 不送 status：由資料庫預設為「待處理」
       var res = await client.from(TABLE).insert({
         reporter_name: name,
         location: MARK_LOCATION,
         category: MARK_CATEGORY,
-        description: note || NOTE_EMPTY,
+        description: pay + SEP + (note || NOTE_EMPTY),
       });
       if (res.error) throw res.error;
 
@@ -218,9 +221,9 @@
       if (!ok || pos < 0) {
         show(formMessage, "已送出報名！", "ok");
       } else if (pos < capacity) {
-        show(formMessage, "報名成功！你是正取第 " + (pos + 1) + " 位。", "ok");
+        show(formMessage, "報名成功！你是正取第 " + (pos + 1) + " 位（" + pay + "）。", "ok");
       } else {
-        show(formMessage, "正取已額滿，你排在候補第 " + (pos - capacity + 1) + " 位。", "ok");
+        show(formMessage, "正取已額滿，你排在候補第 " + (pos - capacity + 1) + " 位（" + pay + "）。", "ok");
       }
     } catch (err) {
       show(formMessage, "報名失敗：" + describeError(err), "err");
@@ -231,107 +234,5 @@
   });
 
   refreshBtn.addEventListener("click", loadList);
-
-  // ---- 管理員：切換繳費狀態 ----
-  async function togglePaid(r, btn) {
-    var next = !r.paid;
-    btn.disabled = true;
-    btn.textContent = "更新中…";
-    try {
-      // 加上 select 才能確認真的改到一筆；權限不足時資料庫會回傳 0 筆
-      var res = await client
-        .from(TABLE)
-        .update({ status: next ? PAID_STATUS : "待處理" })
-        .eq("id", r.id)
-        .eq("location", MARK_LOCATION)
-        .select("id, status");
-      if (res.error) throw res.error;
-      if (!res.data || res.data.length !== 1) {
-        throw { message: "沒有修改權限，請確認這個帳號已設為管理員。" };
-      }
-      r.paid = res.data[0].status === PAID_STATUS;
-      render();
-      show(listMessage, "已將「" + r.name + "」改為" + (r.paid ? "已繳費" : "未繳費") + "。", "ok");
-    } catch (err) {
-      render();
-      show(listMessage, "更新失敗：" + describeError(err), "err");
-    }
-  }
-
-  // ---- 管理員：登入／登出 ----
-  var loginForm = $("loginForm");
-  var loginBtn = $("loginBtn");
-  var adminPanel = $("adminPanel");
-  var adminMessage = $("adminMessage");
-
-  async function applySession(session) {
-    var wasAdmin = isAdmin;
-    isAdmin = false;
-    if (session && session.user) {
-      var res = await client
-        .from("badminton_admins")
-        .select("user_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-      isAdmin = !res.error && !!res.data;
-      loginForm.hidden = true;
-      adminPanel.hidden = false;
-      $("adminWho").textContent = "已登入：" + (session.user.email || "") +
-        (isAdmin ? "（管理員）" : "");
-      if (!isAdmin) {
-        var why = res.error && (res.error.code === "42P01" || res.error.code === "PGRST205")
-          ? "尚未執行 supabase/badminton_admin.sql。"
-          : "這個帳號不是管理員，無法修改繳費狀態。";
-        show(adminMessage, why, "err");
-      } else {
-        show(adminMessage, "可以點選名單上的「已繳費／未繳費」切換。", "ok");
-        $("adminBox").open = true;
-      }
-    } else {
-      loginForm.hidden = false;
-      adminPanel.hidden = true;
-    }
-    if (wasAdmin !== isAdmin && rows.length) render();
-  }
-
-  loginForm.addEventListener("submit", async function (e) {
-    e.preventDefault();
-    var email = $("adminEmail").value.trim();
-    var password = $("adminPassword").value;
-    if (!email || !password) {
-      show(adminMessage, "請輸入 Email 和密碼。", "err");
-      return;
-    }
-    loginBtn.disabled = true;
-    loginBtn.textContent = "登入中…";
-    show(adminMessage, "", "");
-    try {
-      var res = await client.auth.signInWithPassword({ email: email, password: password });
-      if (res.error) {
-        var msg = /invalid login credentials/i.test(res.error.message) ? "Email 或密碼錯誤。"
-          : /email not confirmed/i.test(res.error.message) ? "這個帳號的 Email 尚未確認。"
-          : res.error.message;
-        show(adminMessage, "登入失敗：" + msg, "err");
-        return;
-      }
-      $("adminPassword").value = "";
-      await applySession(res.data.session);
-    } finally {
-      loginBtn.disabled = false;
-      loginBtn.textContent = "登入";
-    }
-  });
-
-  $("logoutBtn").addEventListener("click", async function () {
-    await client.auth.signOut();
-    show(adminMessage, "已登出。", "info");
-    await applySession(null);
-  });
-
-  // 先確認是否已經登入，再載入名單
-  client.auth.getSession().then(function (res) {
-    return applySession(res.data && res.data.session);
-  }).catch(function () {
-    return applySession(null);
-  }).then(loadList);
+  loadList();
 })();

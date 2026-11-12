@@ -2,6 +2,9 @@
 -- 羽球報名：管理員在網頁上切換「已繳費／未繳費」
 --
 -- 本檔請在 Supabase 的 SQL Editor 手動執行一次。
+--
+-- 【目前未使用】網頁已移除管理員登入，改由報名者在表單上選擇已繳費／未繳費。
+-- 已執行過本檔也沒有影響：訪客權限不變，只是多了一張用不到的管理員名單。
 -- 執行前要先完成：
 --   Authentication → Users → Add user → Create new user
 --   輸入管理員的 Email 與密碼，並勾選 Auto Confirm User。
