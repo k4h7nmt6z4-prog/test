@@ -1,0 +1,123 @@
+* { box-sizing: border-box; }
+
+:root {
+  --primary: #2057a5;
+  --primary-dark: #163d76;
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --text: #203047;
+  --muted: #64748b;
+  --border: #cbd5e1;
+  --ok: #176c47;
+  --ok-bg: #e5f5ec;
+  --err: #b42318;
+  --err-bg: #fdecea;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.site-header {
+  padding: 32px 16px 56px;
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), #43a7bf);
+}
+.site-header h1 { margin: 0 0 6px; font-size: clamp(1.6rem, 6vw, 2.4rem); }
+.site-header p { margin: 0 auto; max-width: 36em; opacity: .95; }
+
+main { max-width: 720px; margin: -32px auto 32px; padding: 0 16px; }
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 24px rgba(32, 48, 71, .08);
+}
+.card h2 { margin: 0 0 12px; font-size: 1.25rem; color: var(--primary); }
+
+.field { margin: 0 0 16px; padding: 0; border: 0; min-width: 0; }
+.field label, .field legend { display: block; font-weight: 600; margin-bottom: 6px; padding: 0; }
+
+input[type="text"], select, textarea {
+  width: 100%;
+  /* 16px 以上可避免 iPhone 點選時自動放大 */
+  font: inherit;
+  font-size: 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  min-height: 48px;
+}
+textarea { resize: vertical; }
+input:focus, select:focus, textarea:focus {
+  outline: 3px solid rgba(32, 87, 165, .25);
+  border-color: var(--primary);
+}
+.hint { display: block; text-align: right; color: var(--muted); }
+
+.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label {
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+  padding: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.segmented input:checked + label { background: var(--primary); border-color: var(--primary); color: #fff; }
+.segmented input:focus-visible + label { outline: 3px solid rgba(32, 87, 165, .35); }
+
+button {
+  font: inherit;
+  font-weight: 600;
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  padding: 14px 20px;
+  min-height: 48px;
+  cursor: pointer;
+}
+button[type="submit"] { width: 100%; font-size: 1.05rem; }
+button:hover:not(:disabled) { background: var(--primary-dark); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+button.secondary { background: #e2e8f0; color: var(--text); padding: 8px 14px; min-height: 40px; }
+button.secondary:hover:not(:disabled) { background: #cbd5e1; }
+
+.message { margin: 12px 0 0; border-radius: 10px; }
+.message:empty { display: none; }
+.message.ok { padding: 10px 12px; background: var(--ok-bg); color: var(--ok); }
+.message.err { padding: 10px 12px; background: var(--err-bg); color: var(--err); }
+.message.info { color: var(--muted); }
+
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.list-head h2 { margin: 0; }
+
+.request-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.request-list li { padding: 14px 0; border-top: 1px solid #e2e8f0; }
+.request-list li:first-child { border-top: 0; }
+.item-top { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.badge { font-size: .8rem; padding: 2px 10px; border-radius: 999px; background: #e2e8f0; white-space: nowrap; }
+.badge.urg-高 { background: #fdecea; color: var(--err); }
+.badge.urg-中 { background: #fff4d6; color: #8a5a00; }
+.badge.urg-低 { background: #e5f5ec; color: var(--ok); }
+.badge.status { background: #e0ecfb; color: var(--primary); }
+.item-desc { margin: 2px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.item-meta { font-size: .875rem; color: var(--muted); overflow-wrap: anywhere; }
+
+.site-footer { text-align: center; padding: 8px 16px 24px; color: var(--muted); font-size: .875rem; }
