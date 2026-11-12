@@ -144,3 +144,19 @@ a { color: var(--primary); }
 [hidden] { display: none !important; }
 
 .segmented.two { grid-template-columns: repeat(2, 1fr); }
+
+/* 名單上的繳費狀態按鈕 */
+button.badge.toggle {
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  cursor: pointer;
+}
+button.badge.toggle.paid { background: var(--ok-bg); color: var(--ok); }
+button.badge.toggle.unpaid { background: #fff4d6; color: #8a5a00; }
+button.badge.toggle.paid:hover:not(:disabled) { background: #d3eedf; }
+button.badge.toggle.unpaid:hover:not(:disabled) { background: #ffe9ad; }

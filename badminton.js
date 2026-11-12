@@ -2,14 +2,14 @@
 //
 // 資料沿用報修資料表 repair_requests（不需另外建表），欄位對應如下：
 //   reporter_name  → 名字
-//   description    → 「繳費狀態｜程度備註」，例如「已繳費｜中階」「未繳費｜未填」
-//                     （這欄必填，所以程度沒填時存「未填」）
+//   description    → 程度備註（這欄必填，所以沒填時存「未填」）
 //   location       → 固定為「羽球報名」，用來和一般報修資料區分
 //   category       → 固定為「其他」
-//   status         → 不由網頁送出；管理員在後台改成「已完成」也算已繳費
+//   status         → 「已完成」＝已繳費，「待處理」＝未繳費
 //
-// 繳費狀態由報名者在表單上自行選擇，沒有人工核對。
-// 管理員要更正時，在 Supabase 後台修改 description 開頭的「已繳費／未繳費」。
+// 任何人都能在名單上點選切換繳費狀態（需先執行 supabase/badminton_paid.sql）。
+// 舊版把繳費狀態寫在 description 開頭（「已繳費｜」），執行上述 SQL 時會轉成 status；
+// 轉換前的舊資料仍可正確顯示。
 (function () {
   "use strict";
 
@@ -18,7 +18,7 @@
   var MARK_CATEGORY = "其他";
   var NOTE_EMPTY = "未填";
   var PAID_STATUS = "已完成";
-  var SEP = "｜";
+  var UNPAID_STATUS = "待處理";
   var PAY_RE = /^(已繳費|未繳費)｜/;
   var MAX_ROWS = 200;
 
@@ -98,8 +98,9 @@
       created_at: r.created_at,
       name: r.reporter_name,
       level_note: note === NOTE_EMPTY ? null : note,
-      // 後台把 status 改成「已完成」也算已繳費
+      // 以 status 為準；尚未轉換的舊資料看 description 開頭的標記
       paid: r.status === PAID_STATUS || (m !== null && m[1] === "已繳費"),
+      legacy: m !== null,
     };
   }
 
@@ -121,9 +122,14 @@
     name.textContent = r.name;
     top.appendChild(name);
 
-    var paid = document.createElement("span");
-    paid.className = "badge " + (r.paid ? "paid" : "unpaid");
+    // 繳費狀態是按鈕，點一下就切換
+    var paid = document.createElement("button");
+    paid.type = "button";
+    paid.className = "badge toggle " + (r.paid ? "paid" : "unpaid");
     paid.textContent = r.paid ? "已繳費" : "未繳費";
+    paid.setAttribute("aria-pressed", r.paid ? "true" : "false");
+    paid.setAttribute("aria-label", r.name + "：" + paid.textContent + "，點選切換");
+    paid.addEventListener("click", function () { togglePaid(r, paid); });
     top.appendChild(paid);
     li.appendChild(top);
 
@@ -203,14 +209,25 @@
     submitBtn.textContent = "送出中…";
     show(formMessage, "", "");
     try {
-      // 不送 status：由資料庫預設為「待處理」
+      // 新增時不能送 status，資料庫預設為「待處理」（未繳費）
       var res = await client.from(TABLE).insert({
         reporter_name: name,
         location: MARK_LOCATION,
         category: MARK_CATEGORY,
-        description: pay + SEP + (note || NOTE_EMPTY),
-      });
+        description: note || NOTE_EMPTY,
+      }).select("id");
       if (res.error) throw res.error;
+
+      // 選了「已繳費」：新增後再把這一筆改成已繳費
+      var payWarn = "";
+      if (pay === "已繳費" && res.data && res.data[0]) {
+        try {
+          await setPaid(res.data[0].id, true);
+        } catch (err2) {
+          pay = "未繳費";
+          payWarn = "（繳費狀態沒有更新成功：" + describeUpdateError(err2) + "）";
+        }
+      }
 
       form.reset();
       var ok = await loadList();
@@ -219,11 +236,11 @@
         if (rows[i].name.trim() === name) { pos = i; break; }
       }
       if (!ok || pos < 0) {
-        show(formMessage, "已送出報名！", "ok");
+        show(formMessage, "已送出報名！" + payWarn, "ok");
       } else if (pos < capacity) {
-        show(formMessage, "報名成功！你是正取第 " + (pos + 1) + " 位（" + pay + "）。", "ok");
+        show(formMessage, "報名成功！你是正取第 " + (pos + 1) + " 位（" + pay + "）。" + payWarn, "ok");
       } else {
-        show(formMessage, "正取已額滿，你排在候補第 " + (pos - capacity + 1) + " 位（" + pay + "）。", "ok");
+        show(formMessage, "正取已額滿，你排在候補第 " + (pos - capacity + 1) + " 位（" + pay + "）。" + payWarn, "ok");
       }
     } catch (err) {
       show(formMessage, "報名失敗：" + describeError(err), "err");
@@ -234,5 +251,46 @@
   });
 
   refreshBtn.addEventListener("click", loadList);
+
+  // ---- 切換繳費狀態 ----
+  function describeUpdateError(err) {
+    if (err && (err.code === "42501" || err.noRows)) {
+      return "網頁還沒開放修改，請先在 Supabase 執行 supabase/badminton_paid.sql。";
+    }
+    return describeError(err);
+  }
+
+  // 把某一筆改成已繳費或未繳費，回傳更新後的 status
+  async function setPaid(id, paid) {
+    // 加上 select 才能確認真的改到一筆；權限不足時可能回傳 0 筆
+    var res = await client
+      .from(TABLE)
+      .update({ status: paid ? PAID_STATUS : UNPAID_STATUS })
+      .eq("id", id)
+      .eq("location", MARK_LOCATION)
+      .select("id, status");
+    if (res.error) throw res.error;
+    if (!res.data || res.data.length !== 1) throw { noRows: true };
+    return res.data[0].status;
+  }
+
+  async function togglePaid(r, btn) {
+    if (r.legacy) {
+      show(listMessage, "這筆是舊格式資料，請先在 Supabase 執行 supabase/badminton_paid.sql 轉換後再切換。", "err");
+      return;
+    }
+    var next = !r.paid;
+    btn.disabled = true;
+    btn.textContent = "更新中…";
+    try {
+      var status = await setPaid(r.id, next);
+      r.paid = status === PAID_STATUS;
+      render();
+      show(listMessage, "已將「" + r.name + "」改為" + (r.paid ? "已繳費" : "未繳費") + "。", "ok");
+    } catch (err) {
+      render();
+      show(listMessage, "更新失敗：" + describeUpdateError(err), "err");
+    }
+  }
   loadList();
 })();
