@@ -199,6 +199,15 @@
   }
 
   // ---- 報名 ----
+  var dupConfirmName = "";
+  $("name").addEventListener("input", function () {
+    if (dupConfirmName) {
+      dupConfirmName = "";
+      submitBtn.textContent = "送出報名";
+      show(formMessage, "", "");
+    }
+  });
+
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
     var name = $("name").value.trim();
@@ -210,10 +219,16 @@
       show(formMessage, "請填寫名字。", "err");
       return;
     }
+    // 同名時在頁面上確認：再按一次「送出報名」才送出
+    // （不用 window.confirm，因為有些瀏覽器或內嵌視窗會封鎖跳出視窗）
     var dup = rows.some(function (r) { return r.name.trim() === name; });
-    if (dup && !window.confirm("名單上已經有「" + name + "」，確定要再報名一次嗎？")) {
+    if (dup && dupConfirmName !== name) {
+      dupConfirmName = name;
+      submitBtn.textContent = "再按一次確認送出";
+      show(formMessage, "名單上已經有「" + name + "」。確定要再報名一次，請再按一次送出。", "err");
       return;
     }
+    dupConfirmName = "";
 
     submitBtn.disabled = true;
     submitBtn.textContent = "送出中…";
@@ -273,8 +288,30 @@
   });
 
   // ---- 刪除人員 ----
+  // 名單訊息顯示後捲到畫面上，避免按鈕在下方時看不到
+  function showListMessage(text, kind) {
+    show(listMessage, text, kind);
+    if (text) listMessage.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  // 第一次按：按鈕變成「確定刪除？」；4 秒內再按一次才刪除
+  // （不用 window.confirm，因為有些瀏覽器或內嵌視窗會封鎖跳出視窗）
   async function deletePlayer(r, btn) {
-    if (!window.confirm("確定要刪除「" + r.name + "」嗎？刪除後無法復原。")) return;
+    if (btn.dataset.armed !== "1") {
+      btn.dataset.armed = "1";
+      btn.classList.add("armed");
+      btn.textContent = "確定刪除？";
+      btn.setAttribute("aria-label", "再按一次刪除「" + r.name + "」");
+      setTimeout(function () {
+        if (btn.isConnected && btn.dataset.armed === "1" && !btn.disabled) {
+          btn.dataset.armed = "";
+          btn.classList.remove("armed");
+          btn.textContent = "刪除";
+          btn.setAttribute("aria-label", "刪除「" + r.name + "」");
+        }
+      }, 4000);
+      return;
+    }
     btn.disabled = true;
     btn.textContent = "刪除中…";
     try {
@@ -288,14 +325,16 @@
       if (res.error) throw res.error;
       if (!res.data || res.data.length !== 1) throw { noRows: true };
       await loadList();
-      show(listMessage, "已刪除「" + r.name + "」。", "ok");
+      showListMessage("已刪除「" + r.name + "」。", "ok");
     } catch (err) {
       btn.disabled = false;
+      btn.dataset.armed = "";
+      btn.classList.remove("armed");
       btn.textContent = "刪除";
       var why = err && (err.code === "42501" || err.noRows)
         ? "網頁還沒開放刪除，請先在 Supabase 執行 supabase/badminton_delete.sql。"
         : describeError(err);
-      show(listMessage, "刪除失敗：" + why, "err");
+      showListMessage("刪除失敗：" + why, "err");
     }
   }
 
@@ -323,7 +362,7 @@
 
   async function togglePaid(r, btn) {
     if (r.legacy) {
-      show(listMessage, "這筆是舊格式資料，請先在 Supabase 執行 supabase/badminton_paid.sql 轉換後再切換。", "err");
+      showListMessage("這筆是舊格式資料，請先在 Supabase 執行 supabase/badminton_paid.sql 轉換後再切換。", "err");
       return;
     }
     var next = !r.paid;
@@ -336,7 +375,7 @@
       show(listMessage, "已將「" + r.name + "」改為" + (r.paid ? "已繳費" : "未繳費") + "。", "ok");
     } catch (err) {
       render();
-      show(listMessage, "更新失敗：" + describeUpdateError(err), "err");
+      showListMessage("更新失敗：" + describeUpdateError(err), "err");
     }
   }
   loadList();

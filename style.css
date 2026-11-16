@@ -197,3 +197,6 @@ button.delete-btn:hover:not(:disabled) { background: var(--err-bg); }
 @media (display-mode: standalone) {
   .site-header { padding-top: calc(32px + env(safe-area-inset-top)); }
 }
+/* 刪除按鈕第一次按下後：等待再按一次確認 */
+button.delete-btn.armed { background: var(--err); border-color: var(--err); color: #fff; font-weight: 700; }
+button.delete-btn.armed:hover:not(:disabled) { background: #8f1c13; }
