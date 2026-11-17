@@ -114,6 +114,11 @@
     if (/email not confirmed/i.test(m)) return "這個帳號還沒完成 Email 確認，請到信箱點確認連結後再登入。";
     if (/already registered|already been registered/i.test(m)) return "這個 Email 已經註冊過，請改用登入。";
     if (/password should be at least|weak password/i.test(m)) return "密碼太短或太簡單，請至少 6 個字元。";
+    // 專案開著「Confirm email」但寄不出確認信（內建寄信服務只寄給組織成員、每小時封數很少）
+    if (/not authorized|error sending|sending (confirmation|magic)|smtp/i.test(m) ||
+        /email rate limit/i.test(m)) {
+      return "確認信寄不出去。請主辦人到 Supabase 的 Authentication → Sign In / Providers → Email，把「Confirm email」關掉後再註冊。";
+    }
     if (/rate limit|too many/i.test(m)) return "嘗試次數太多，請稍後再試。";
     if (/signups not allowed|signup is disabled/i.test(m)) return "目前不開放註冊，請聯絡主辦人。";
     if (/invalid email|unable to validate email/i.test(m)) return "Email 格式不正確。";
