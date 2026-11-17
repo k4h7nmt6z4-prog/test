@@ -1,27 +1,18 @@
-// 羽球報名前端：報名、正取／候補名單、人數與繳費統計。
+// 羽球報名前端：每個人登入後管理自己的名單。
 //
-// 資料沿用報修資料表 repair_requests（不需另外建表），欄位對應如下：
-//   reporter_name  → 名字
-//   description    → 程度備註（這欄必填，所以沒填時存「未填」）
-//   location       → 固定為「羽球報名」，用來和一般報修資料區分
-//   category       → 固定為「其他」
-//   status         → 「已完成」＝已繳費，「待處理」＝未繳費
+// 資料表：badminton_players（見 supabase/badminton_personal.sql）
+//   name        → 名字
+//   level_note  → 程度備註（選填）
+//   paid        → 是否已繳費
+//   owner_id    → 建立者，由資料庫自動填入目前登入的帳號
 //
-// 任何人都能在名單上點選切換繳費狀態（需先執行 supabase/badminton_paid.sql），
-// 也能刪除名單上的人員（需先執行 supabase/badminton_delete.sql）。
-// 舊版把繳費狀態寫在 description 開頭（「已繳費｜」），執行上述 SQL 時會轉成 status；
-// 轉換前的舊資料仍可正確顯示。
+// 資料庫規則限定每個帳號只能讀寫自己的名單，網頁不需要也不能指定 owner_id。
+// 確認動作都在頁面上完成，不用 window.confirm（有些瀏覽器或內嵌視窗會封鎖跳出視窗）。
 (function () {
   "use strict";
 
-  var TABLE = "repair_requests";
-  var MARK_LOCATION = "羽球報名";
-  var MARK_CATEGORY = "其他";
-  var NOTE_EMPTY = "未填";
-  var PAID_STATUS = "已完成";
-  var UNPAID_STATUS = "待處理";
-  var PAY_RE = /^(已繳費|未繳費)｜/;
-  var MAX_ROWS = 200;
+  var TABLE = "badminton_players";
+  var MAX_ROWS = 500;
 
   var cfg = window.APP_CONFIG || {};
   var courts = Number(cfg.BADMINTON_COURTS) || 2;
@@ -37,6 +28,12 @@
   var confirmedList = $("confirmedList");
   var waitlist = $("waitlist");
   var waitlistEmpty = $("waitlistEmpty");
+  var authCard = $("authCard");
+  var authForm = $("authForm");
+  var authSubmit = $("authSubmit");
+  var authMessage = $("authMessage");
+  var authLoading = $("authLoading");
+  var appArea = $("appArea");
 
   $("courtsText").textContent = String(courts);
   $("perCourtText").textContent = String(perCourt);
@@ -62,18 +59,18 @@
     configError = "尚未設定 publishable key，請編輯 config.js。";
   }
   if (configError) {
-    show(formMessage, configError, "err");
-    show(listMessage, configError, "err");
-    submitBtn.disabled = true;
-    refreshBtn.disabled = true;
+    show(authLoading, configError, "err");
     return;
   }
 
+  // 保留登入狀態，下次打開不用再登入；
+  // 註冊確認信的連結回到這個頁面時，會自動完成登入
   var client = window.supabase.createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "badminton-auth" },
   });
 
   var rows = [];
+  var currentUserId = null;
 
   var timeFmt = new Intl.DateTimeFormat("zh-TW", {
     timeZone: "Asia/Taipei",
@@ -85,28 +82,127 @@
     if (!navigator.onLine) return "目前沒有網路連線，請連上網路後再試一次。";
     if (!err) return "未知錯誤";
     if (err.code === "23514") return "內容不符合規定（例如名字太長）。";
-    if (err.code === "42501") return "沒有權限，請確認資料庫的權限與安全規則已設定。";
-    if (err.code === "42P01" || err.code === "PGRST205") return "找不到資料表，請確認已執行 supabase/schema.sql。";
+    if (err.code === "42501") return "沒有權限，請確認已執行 supabase/badminton_personal.sql。";
+    if (err.code === "42P01" || err.code === "PGRST205") return "找不到資料表，請先在 Supabase 執行 supabase/badminton_personal.sql。";
+    if (err.status === 401 || /JWT|jwt/.test(err.message || "")) return "登入已過期，請重新登入。";
     return err.message || String(err);
   }
 
-  // 把資料庫的一列轉成羽球報名用的欄位
-  function toPlayer(r) {
-    var desc = r.description || "";
-    var m = desc.match(PAY_RE);
-    var note = m ? desc.slice(m[0].length) : desc;
-    return {
-      id: r.id,
-      created_at: r.created_at,
-      name: r.reporter_name,
-      level_note: note === NOTE_EMPTY ? null : note,
-      // 以 status 為準；尚未轉換的舊資料看 description 開頭的標記
-      paid: r.status === PAID_STATUS || (m !== null && m[1] === "已繳費"),
-      legacy: m !== null,
-    };
+  // =====================================================================
+  // 登入／註冊
+  // =====================================================================
+  var authMode = "login";
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    var signup = mode === "signup";
+    $("auth-title").textContent = signup ? "註冊新帳號" : "登入";
+    authSubmit.textContent = signup ? "註冊" : "登入";
+    $("authPassword").autocomplete = signup ? "new-password" : "current-password";
+    $("authSwitchText").textContent = signup ? "已經有帳號？" : "還沒有帳號？";
+    $("authSwitch").textContent = signup ? "改用登入" : "註冊新帳號";
+    show(authMessage, "", "");
   }
 
-  // ---- 名單 ----
+  $("authSwitch").addEventListener("click", function () {
+    setAuthMode(authMode === "login" ? "signup" : "login");
+  });
+
+  function describeAuthError(err) {
+    var m = (err && err.message) || "";
+    if (/invalid login credentials/i.test(m)) return "Email 或密碼錯誤。";
+    if (/email not confirmed/i.test(m)) return "這個帳號還沒完成 Email 確認，請到信箱點確認連結後再登入。";
+    if (/already registered|already been registered/i.test(m)) return "這個 Email 已經註冊過，請改用登入。";
+    if (/password should be at least|weak password/i.test(m)) return "密碼太短或太簡單，請至少 6 個字元。";
+    if (/rate limit|too many/i.test(m)) return "嘗試次數太多，請稍後再試。";
+    if (/signups not allowed|signup is disabled/i.test(m)) return "目前不開放註冊，請聯絡主辦人。";
+    if (/invalid email|unable to validate email/i.test(m)) return "Email 格式不正確。";
+    if (!navigator.onLine) return "目前沒有網路連線。";
+    return m || "未知錯誤";
+  }
+
+  authForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var email = $("authEmail").value.trim();
+    var password = $("authPassword").value;
+    if (!email || !password) {
+      show(authMessage, "請輸入 Email 和密碼。", "err");
+      return;
+    }
+    if (password.length < 6) {
+      show(authMessage, "密碼至少要 6 個字元。", "err");
+      return;
+    }
+    authSubmit.disabled = true;
+    authSubmit.textContent = authMode === "signup" ? "註冊中…" : "登入中…";
+    show(authMessage, "", "");
+    try {
+      var res;
+      if (authMode === "signup") {
+        res = await client.auth.signUp({
+          email: email,
+          password: password,
+          // 確認信的連結回到這個頁面
+          options: { emailRedirectTo: location.origin + location.pathname },
+        });
+        if (res.error) throw res.error;
+        if (!res.data.session) {
+          // 專案開啟了 Email 確認：要先到信箱點連結
+          setAuthMode("login");
+          show(authMessage, "註冊成功！請到 " + email + " 的信箱點確認連結，再回來登入。", "ok");
+          return;
+        }
+      } else {
+        res = await client.auth.signInWithPassword({ email: email, password: password });
+        if (res.error) throw res.error;
+      }
+      $("authPassword").value = "";
+      await applySession(res.data.session);
+    } catch (err) {
+      show(authMessage, (authMode === "signup" ? "註冊失敗：" : "登入失敗：") + describeAuthError(err), "err");
+    } finally {
+      authSubmit.disabled = false;
+      authSubmit.textContent = authMode === "signup" ? "註冊" : "登入";
+    }
+  });
+
+  $("logoutBtn").addEventListener("click", async function () {
+    try { await client.auth.signOut(); } catch (e) { /* 離線時也照樣清除畫面 */ }
+    await applySession(null);
+    show(authMessage, "已登出。", "info");
+  });
+
+  async function applySession(session) {
+    authLoading.hidden = true;
+    var userId = session && session.user ? session.user.id : null;
+    if (!userId) {
+      currentUserId = null;
+      rows = [];
+      confirmedList.replaceChildren();
+      waitlist.replaceChildren();
+      appArea.hidden = true;
+      authCard.hidden = false;
+      return;
+    }
+    $("accountEmail").textContent = session.user.email || "";
+    authCard.hidden = true;
+    appArea.hidden = false;
+    if (userId !== currentUserId) {
+      currentUserId = userId;
+      rows = [];
+      await loadList();
+    }
+  }
+
+  // 登入狀態改變（例如登入過期、從確認信連結回來）時同步畫面
+  client.auth.onAuthStateChange(function (event, session) {
+    if (event === "SIGNED_OUT") applySession(null);
+    else if (event === "SIGNED_IN" && session) setTimeout(function () { applySession(session); }, 0);
+  });
+
+  // =====================================================================
+  // 名單
+  // =====================================================================
   function renderPlayer(r, label) {
     // 一律用 textContent 放入資料，避免輸入內容被當成 HTML 執行
     var li = document.createElement("li");
@@ -146,7 +242,7 @@
     var meta = document.createElement("div");
     meta.className = "item-meta";
     var note = r.level_note && r.level_note.trim() ? "程度：" + r.level_note.trim() : "程度：未填";
-    meta.textContent = note + " · 報名 " + timeFmt.format(new Date(r.created_at));
+    meta.textContent = note + " · 加入 " + timeFmt.format(new Date(r.created_at));
     li.appendChild(meta);
     return li;
   }
@@ -170,35 +266,44 @@
     $("paidCount").textContent = String(rows.filter(function (r) { return r.paid; }).length);
 
     waitlistEmpty.hidden = waiting.length > 0;
-    if (!rows.length) show(listMessage, "目前還沒有人報名。", "info");
+    if (!rows.length) show(listMessage, "名單還是空的，從上方新增第一位吧。", "info");
     else show(listMessage, "", "");
   }
 
   async function loadList() {
+    if (!currentUserId) return false;
     refreshBtn.disabled = true;
     show(listMessage, "載入中…", "info");
     try {
-      // 依報名時間由早到晚排序：前 capacity 名正取，其餘候補
+      // 依加入時間由早到晚排序：前 capacity 名正取，其餘候補
+      // （資料庫規則只會回傳自己的名單）
       var res = await client
         .from(TABLE)
-        .select("id, created_at, reporter_name, description, status")
-        .eq("location", MARK_LOCATION)
+        .select("id, created_at, name, level_note, paid")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .limit(MAX_ROWS);
       if (res.error) throw res.error;
-      rows = res.data.map(toPlayer);
+      rows = res.data;
       render();
       return true;
     } catch (err) {
-      show(listMessage, "名單載入失敗：" + describeError(err), "err");
+      showListMessage("名單載入失敗：" + describeError(err), "err");
       return false;
     } finally {
       refreshBtn.disabled = false;
     }
   }
 
-  // ---- 報名 ----
+  // 名單訊息顯示後捲到畫面上，避免按鈕在下方時看不到
+  function showListMessage(text, kind) {
+    show(listMessage, text, kind);
+    if (text) listMessage.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  // =====================================================================
+  // 新增
+  // =====================================================================
   var dupConfirmName = "";
   $("name").addEventListener("input", function () {
     if (dupConfirmName) {
@@ -213,19 +318,18 @@
     var name = $("name").value.trim();
     var note = $("level_note").value.trim();
     var payChoice = form.querySelector('input[name="pay"]:checked');
-    var pay = payChoice ? payChoice.value : "未繳費";
+    var paid = payChoice ? payChoice.value === "已繳費" : false;
 
     if (!name) {
       show(formMessage, "請填寫名字。", "err");
       return;
     }
     // 同名時在頁面上確認：再按一次「送出報名」才送出
-    // （不用 window.confirm，因為有些瀏覽器或內嵌視窗會封鎖跳出視窗）
     var dup = rows.some(function (r) { return r.name.trim() === name; });
     if (dup && dupConfirmName !== name) {
       dupConfirmName = name;
       submitBtn.textContent = "再按一次確認送出";
-      show(formMessage, "名單上已經有「" + name + "」。確定要再報名一次，請再按一次送出。", "err");
+      show(formMessage, "名單上已經有「" + name + "」。確定要再加入一次，請再按一次送出。", "err");
       return;
     }
     dupConfirmName = "";
@@ -234,25 +338,13 @@
     submitBtn.textContent = "送出中…";
     show(formMessage, "", "");
     try {
-      // 新增時不能送 status，資料庫預設為「待處理」（未繳費）
+      // owner_id 由資料庫自動填入目前登入的帳號
       var res = await client.from(TABLE).insert({
-        reporter_name: name,
-        location: MARK_LOCATION,
-        category: MARK_CATEGORY,
-        description: note || NOTE_EMPTY,
-      }).select("id");
+        name: name,
+        level_note: note || null,
+        paid: paid,
+      });
       if (res.error) throw res.error;
-
-      // 選了「已繳費」：新增後再把這一筆改成已繳費
-      var payWarn = "";
-      if (pay === "已繳費" && res.data && res.data[0]) {
-        try {
-          await setPaid(res.data[0].id, true);
-        } catch (err2) {
-          pay = "未繳費";
-          payWarn = "但「已繳費」沒有設定成功，目前顯示為未繳費。原因：" + describeUpdateError(err2);
-        }
-      }
 
       form.reset();
       var ok = await loadList();
@@ -260,19 +352,16 @@
       for (var i = rows.length - 1; i >= 0; i--) {
         if (rows[i].name.trim() === name) { pos = i; break; }
       }
-      var msg;
+      var payText = paid ? "已繳費" : "未繳費";
       if (!ok || pos < 0) {
-        msg = "已送出報名！";
+        show(formMessage, "已加入名單！", "ok");
       } else if (pos < capacity) {
-        msg = "報名成功！你是正取第 " + (pos + 1) + " 位（" + pay + "）。";
+        show(formMessage, "已加入！「" + name + "」是正取第 " + (pos + 1) + " 位（" + payText + "）。", "ok");
       } else {
-        msg = "正取已額滿，你排在候補第 " + (pos - capacity + 1) + " 位（" + pay + "）。";
+        show(formMessage, "正取已額滿，「" + name + "」排在候補第 " + (pos - capacity + 1) + " 位（" + payText + "）。", "ok");
       }
-      // 繳費狀態設定失敗時用紅色錯誤訊息，避免被忽略
-      if (payWarn) show(formMessage, msg + payWarn, "err");
-      else show(formMessage, msg, "ok");
     } catch (err) {
-      show(formMessage, "報名失敗：" + describeError(err), "err");
+      show(formMessage, "新增失敗：" + describeError(err), "err");
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = "送出報名";
@@ -281,21 +370,40 @@
 
   refreshBtn.addEventListener("click", loadList);
 
-  // 「＋ 新增人員」：跳到上方的報名表單
+  // 「＋ 新增人員」：跳到上方的表單
   $("addBtn").addEventListener("click", function () {
     form.scrollIntoView({ behavior: "smooth", block: "start" });
     $("name").focus({ preventScroll: true });
   });
 
-  // ---- 刪除人員 ----
-  // 名單訊息顯示後捲到畫面上，避免按鈕在下方時看不到
-  function showListMessage(text, kind) {
-    show(listMessage, text, kind);
-    if (text) listMessage.scrollIntoView({ behavior: "smooth", block: "center" });
+  // =====================================================================
+  // 切換繳費狀態
+  // =====================================================================
+  async function togglePaid(r, btn) {
+    var next = !r.paid;
+    btn.disabled = true;
+    btn.textContent = "更新中…";
+    try {
+      // 加上 select 才能確認真的改到一筆
+      var res = await client
+        .from(TABLE)
+        .update({ paid: next })
+        .eq("id", r.id)
+        .select("id, paid");
+      if (res.error) throw res.error;
+      if (!res.data || res.data.length !== 1) throw { code: "42501" };
+      r.paid = res.data[0].paid;
+      render();
+      show(listMessage, "已將「" + r.name + "」改為" + (r.paid ? "已繳費" : "未繳費") + "。", "ok");
+    } catch (err) {
+      render();
+      showListMessage("更新失敗：" + describeError(err), "err");
+    }
   }
 
-  // 第一次按：按鈕變成「確定刪除？」；4 秒內再按一次才刪除
-  // （不用 window.confirm，因為有些瀏覽器或內嵌視窗會封鎖跳出視窗）
+  // =====================================================================
+  // 刪除：第一次按變成「確定刪除？」，4 秒內再按一次才刪除
+  // =====================================================================
   async function deletePlayer(r, btn) {
     if (btn.dataset.armed !== "1") {
       btn.dataset.armed = "1";
@@ -315,15 +423,13 @@
     btn.disabled = true;
     btn.textContent = "刪除中…";
     try {
-      // 加上 select 才能確認真的刪到一筆；沒有權限時可能回傳 0 筆
       var res = await client
         .from(TABLE)
         .delete()
         .eq("id", r.id)
-        .eq("location", MARK_LOCATION)
         .select("id");
       if (res.error) throw res.error;
-      if (!res.data || res.data.length !== 1) throw { noRows: true };
+      if (!res.data || res.data.length !== 1) throw { code: "42501" };
       await loadList();
       showListMessage("已刪除「" + r.name + "」。", "ok");
     } catch (err) {
@@ -331,52 +437,16 @@
       btn.dataset.armed = "";
       btn.classList.remove("armed");
       btn.textContent = "刪除";
-      var why = err && (err.code === "42501" || err.noRows)
-        ? "網頁還沒開放刪除，請先在 Supabase 執行 supabase/badminton_delete.sql。"
-        : describeError(err);
-      showListMessage("刪除失敗：" + why, "err");
+      showListMessage("刪除失敗：" + describeError(err), "err");
     }
   }
 
-  // ---- 切換繳費狀態 ----
-  function describeUpdateError(err) {
-    if (err && (err.code === "42501" || err.noRows)) {
-      return "網頁還沒開放修改，請先在 Supabase 執行 supabase/badminton_paid.sql。";
-    }
-    return describeError(err);
-  }
-
-  // 把某一筆改成已繳費或未繳費，回傳更新後的 status
-  async function setPaid(id, paid) {
-    // 加上 select 才能確認真的改到一筆；權限不足時可能回傳 0 筆
-    var res = await client
-      .from(TABLE)
-      .update({ status: paid ? PAID_STATUS : UNPAID_STATUS })
-      .eq("id", id)
-      .eq("location", MARK_LOCATION)
-      .select("id, status");
-    if (res.error) throw res.error;
-    if (!res.data || res.data.length !== 1) throw { noRows: true };
-    return res.data[0].status;
-  }
-
-  async function togglePaid(r, btn) {
-    if (r.legacy) {
-      showListMessage("這筆是舊格式資料，請先在 Supabase 執行 supabase/badminton_paid.sql 轉換後再切換。", "err");
-      return;
-    }
-    var next = !r.paid;
-    btn.disabled = true;
-    btn.textContent = "更新中…";
-    try {
-      var status = await setPaid(r.id, next);
-      r.paid = status === PAID_STATUS;
-      render();
-      show(listMessage, "已將「" + r.name + "」改為" + (r.paid ? "已繳費" : "未繳費") + "。", "ok");
-    } catch (err) {
-      render();
-      showListMessage("更新失敗：" + describeUpdateError(err), "err");
-    }
-  }
-  loadList();
+  // =====================================================================
+  // 啟動：先確認是否已登入
+  // =====================================================================
+  client.auth.getSession().then(function (res) {
+    return applySession(res.data && res.data.session);
+  }).catch(function () {
+    return applySession(null);
+  });
 })();

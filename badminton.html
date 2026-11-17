@@ -36,6 +36,36 @@
       </div>
     </section>
 
+    <!-- 登入／註冊：每個帳號只看得到自己的名單 -->
+    <section id="authCard" class="card" aria-labelledby="auth-title" hidden>
+      <h2 id="auth-title">登入</h2>
+      <p class="note auth-intro">每個人用自己的帳號登入，只會看到自己建立的名單。</p>
+      <form id="authForm" novalidate>
+        <div class="field">
+          <label for="authEmail">Email</label>
+          <input id="authEmail" type="email" autocomplete="username" inputmode="email" required>
+        </div>
+        <div class="field">
+          <label for="authPassword">密碼 <span class="optional">（至少 6 個字元）</span></label>
+          <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required>
+        </div>
+        <button type="submit" id="authSubmit">登入</button>
+        <p id="authMessage" class="message" role="status" aria-live="polite"></p>
+      </form>
+      <p class="auth-switch">
+        <span id="authSwitchText">還沒有帳號？</span>
+        <button type="button" id="authSwitch" class="link-btn">註冊新帳號</button>
+      </p>
+    </section>
+
+    <p id="authLoading" class="message info">載入中…</p>
+
+    <div id="appArea" hidden>
+    <section class="card account-bar" aria-label="帳號">
+      <span>已登入：<strong id="accountEmail"></strong></span>
+      <button type="button" id="logoutBtn" class="secondary">登出</button>
+    </section>
+
     <section class="card summary" aria-label="報名人數">
       <div class="stat">
         <span class="stat-label">正取</span>
@@ -56,7 +86,7 @@
     </section>
 
     <section class="card" aria-labelledby="form-title">
-      <h2 id="form-title">我要報名</h2>
+      <h2 id="form-title">新增報名</h2>
       <form id="signupForm" novalidate>
         <div class="field">
           <label for="name">名字</label>
@@ -81,7 +111,7 @@
         <button type="submit" id="submitBtn">送出報名</button>
         <p id="formMessage" class="message" role="status" aria-live="polite"></p>
       </form>
-      <p class="note">繳費後可以在下方名單點選「未繳費」改成「已繳費」；要取消報名，按名單上的「刪除」。</p>
+      <p class="note">這份名單只有你的帳號看得到。點名單上的「未繳費／已繳費」可切換；按「刪除」可移除人員。</p>
     </section>
 
     <section class="card" aria-labelledby="confirmed-title">
@@ -101,6 +131,7 @@
       <p id="waitlistEmpty" class="message info">目前沒有候補。</p>
       <ol id="waitlist" class="player-list"></ol>
     </section>
+    </div>
   </main>
 
   <footer class="site-footer"><a href="index.html">前往報修登記</a></footer>

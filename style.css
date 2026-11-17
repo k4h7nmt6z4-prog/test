@@ -48,7 +48,7 @@ main { max-width: 720px; margin: -32px auto 32px; padding: 0 16px; }
 .field { margin: 0 0 16px; padding: 0; border: 0; min-width: 0; }
 .field label, .field legend { display: block; font-weight: 600; margin-bottom: 6px; padding: 0; }
 
-input[type="text"], select, textarea {
+input[type="text"], input[type="email"], input[type="password"], select, textarea {
   width: 100%;
   /* 16px 以上可避免 iPhone 點選時自動放大 */
   font: inherit;
@@ -200,3 +200,16 @@ button.delete-btn:hover:not(:disabled) { background: var(--err-bg); }
 /* 刪除按鈕第一次按下後：等待再按一次確認 */
 button.delete-btn.armed { background: var(--err); border-color: var(--err); color: #fff; font-weight: 700; }
 button.delete-btn.armed:hover:not(:disabled) { background: #8f1c13; }
+
+/* ---- 登入／帳號 ---- */
+.auth-intro { margin: -4px 0 12px; }
+.auth-switch { margin: 12px 0 0; text-align: center; color: var(--muted); }
+button.link-btn {
+  background: none; color: var(--primary); padding: 4px 6px; min-height: 0;
+  font-weight: 700; text-decoration: underline;
+}
+button.link-btn:hover:not(:disabled) { background: none; color: var(--primary-dark); }
+#authForm button[type="submit"] { width: 100%; }
+.account-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; }
+.account-bar span { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
+.account-bar strong { color: var(--text); }
