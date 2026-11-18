@@ -246,3 +246,34 @@ button.link-btn:hover:not(:disabled) { background: none; color: var(--primary-da
   border: 1px solid var(--border); border-radius: 10px; background: #f8fafc; color: var(--text);
 }
 .share-row button { flex-shrink: 0; padding: 10px 16px; min-height: 44px; }
+
+/* ---- 頂部橫幅圖（images/banner-*.webp，比例 2:1）---- */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.site-header.banner-header {
+  padding: 0 0 36px;
+  /* 兩側補色和圖片邊緣的藍色漸層一致，電腦上看起來是同一張 */
+  background: linear-gradient(180deg, #0768c0 0%, #0973ca 50%, #0a7ed2 100%);
+}
+.banner {
+  display: block; width: 100%; max-width: 800px; height: auto; margin: 0 auto;
+  aspect-ratio: 2 / 1;
+}
+/* 螢幕比圖片寬時（電腦），左右邊緣淡出，和兩側藍色接在一起 */
+@media (min-width: 801px) {
+  .banner {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 3%, #000 97%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 3%, #000 97%, transparent 100%);
+  }
+}
+/* 主辦人看到的正取名額說明，放在橫幅下方 */
+.site-header .header-info {
+  margin: 4px auto 0; padding: 0 16px; max-width: 800px;
+  font-size: .9rem; color: #fff; opacity: .95;
+}
+.site-header .header-info[hidden] { display: none; }
+@media (display-mode: standalone) {
+  .site-header.banner-header { padding-top: env(safe-area-inset-top); }
+}

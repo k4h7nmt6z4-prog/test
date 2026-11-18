@@ -17,10 +17,16 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="site-header">
-    <h1>豬豬羽球報名</h1>
-    <p id="headerPublic" hidden>填寫名字與程度就能報名，依報名先後排正取與候補。</p>
-    <p id="headerInfo">共 <span id="courtsText">4</span> 場、每場 <span id="perCourtText">8</span> 人，前 <span id="capacityText">32</span> 位正取，之後依序候補。</p>
+  <header class="site-header banner-header">
+    <!-- 標題與說明已畫在橫幅圖裡；文字仍保留給螢幕閱讀器與搜尋引擎 -->
+    <h1 class="sr-only">豬豬羽球報名</h1>
+    <img class="banner" src="images/banner-1600.webp"
+         srcset="images/banner-800.webp 800w, images/banner-1600.webp 1600w"
+         sizes="(max-width: 800px) 100vw, 800px" width="1600" height="800"
+         alt="豬豬羽球報名：填寫名字與程度就能報名，依報名先後排序正取與候補。">
+    <p id="headerPublic" class="sr-only" hidden>填寫名字與程度就能報名，依報名先後排正取與候補。</p>
+    <!-- 主辦人登入後才顯示目前的正取名額 -->
+    <p id="headerInfo" class="header-info">共 <span id="courtsText">4</span> 場、每場 <span id="perCourtText">8</span> 人，前 <span id="capacityText">32</span> 位正取，之後依序候補。</p>
   </header>
 
   <main>
