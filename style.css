@@ -298,3 +298,11 @@ button.image-submit:disabled img { filter: blur(2px); }
   background: rgba(6, 36, 82, .82);
 }
 .submit-busy[hidden] { display: none; }
+
+/* 「我要報名」標題後的豬豬圖（透明背景） */
+.title-with-pig { display: flex; align-items: center; gap: 8px; }
+.title-pig {
+  height: 64px; width: auto; flex-shrink: 0;
+  /* 圖比文字高，往上下延伸一點，不把卡片撐太高 */
+  margin: -14px 0 -10px;
+}
