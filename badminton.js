@@ -50,12 +50,17 @@
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   var LIST_KEY = "badminton-public-list";
   var publicListId = null;
+  var DEFAULT_LIST_ID = UUID_RE.test(String(cfg.PUBLIC_LIST_ID || "").trim())
+    ? String(cfg.PUBLIC_LIST_ID).trim().toLowerCase() : "";
   (function () {
     var fromUrl = new URLSearchParams(location.search).get("list");
     if (fromUrl && UUID_RE.test(fromUrl)) {
       publicListId = fromUrl.toLowerCase();
       // 記住名單編號：加到主畫面後從圖示打開（網址沒有 ?list=）也能報名
       try { localStorage.setItem(LIST_KEY, publicListId); } catch (e) { /* 記不住也能用連結報名 */ }
+    } else if (DEFAULT_LIST_ID) {
+      // 直接打開網址：使用 config.js 設定的預設名單
+      publicListId = DEFAULT_LIST_ID;
     } else {
       try {
         var saved = localStorage.getItem(LIST_KEY);
@@ -247,7 +252,9 @@
     $("headerPublic").hidden = true;
     $("headerInfo").hidden = false;
     appArea.hidden = false;
-    $("shareLink").value = location.origin + location.pathname + "?list=" + userId;
+    // 自己就是預設名單時，直接分享網址即可；否則附上 ?list=
+    $("shareLink").value = location.origin + location.pathname +
+      (userId === DEFAULT_LIST_ID ? "" : "?list=" + userId);
     show($("shareMessage"), "", "");
     if (userId !== currentUserId) {
       currentUserId = userId;
