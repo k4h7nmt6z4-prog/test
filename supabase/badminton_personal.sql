@@ -8,7 +8,7 @@
 -- 設計：
 -- - 每一筆名單都記錄建立者（owner_id），預設為目前登入的帳號。
 -- - 每個人只能讀取、新增、修改、刪除自己的名單；看不到別人的資料。
--- - 沒有登入的訪客完全不能讀寫這張表。
+-- - 沒有登入的訪客完全不能讀寫這張表，只能透過 badminton_public_signup 報名。
 --
 -- 舊的共用名單（存在 repair_requests、地點為「羽球報名」）會保留，
 -- 但新版網頁不再使用；本檔會收回訪客修改與刪除報修資料表的權限。
@@ -145,6 +145,76 @@ create policy badminton_settings_update_own
   on public.badminton_settings for update to authenticated
   using (owner_id = (select auth.uid()))
   with check (owner_id = (select auth.uid()));
+
+
+-- ---------------------------------------------------------------------
+-- 公開報名：不用登入也能報名到某位主辦人的名單
+-- - 訪客（anon）對名單資料表仍然「完全沒有權限」，看不到、改不了、刪不了。
+-- - 唯一開放的是這個函式：只能新增一筆，名字 1～30 字、程度 1～10，
+--   繳費狀態固定為未繳費；回傳的只有「自己是第幾位」與正取名額，
+--   不會透露名單上的其他人。
+-- - 每份名單最多 300 筆，避免被大量灌資料。
+-- - 只有登入的主辦人可以：看名單、刪除、按已繳費、設定正取名額。
+-- ---------------------------------------------------------------------
+create or replace function public.badminton_public_signup(
+  p_list  uuid,
+  p_name  text,
+  p_level smallint
+)
+returns table (out_position integer, out_capacity integer)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_name    text := btrim(coalesce(p_name, ''));
+  v_id      uuid;
+  v_created timestamptz;
+  v_cap     integer;
+  v_pos     integer;
+  v_count   integer;
+begin
+  if p_list is null or not exists (select 1 from auth.users u where u.id = p_list) then
+    raise exception '找不到這份報名名單' using errcode = 'P0002';
+  end if;
+  if char_length(v_name) < 1 or char_length(v_name) > 30 then
+    raise exception '名字需為 1～30 字' using errcode = '22023';
+  end if;
+  if p_level is null or p_level < 1 or p_level > 10 then
+    raise exception '程度需為 1～10' using errcode = '22023';
+  end if;
+
+  select count(*) into v_count
+  from public.badminton_players bp
+  where bp.owner_id = p_list;
+  if v_count >= 300 then
+    raise exception '這份名單已達 300 人上限' using errcode = 'P0001';
+  end if;
+
+  insert into public.badminton_players (owner_id, name, level, paid)
+  values (p_list, v_name, p_level, false)
+  returning id, created_at into v_id, v_created;
+
+  select coalesce(
+    (select bs.capacity from public.badminton_settings bs where bs.owner_id = p_list),
+    32
+  ) into v_cap;
+
+  -- 依加入時間排序（與網頁相同），算出自己是第幾位
+  select count(*) into v_pos
+  from public.badminton_players bp
+  where bp.owner_id = p_list
+    and (bp.created_at, bp.id) <= (v_created, v_id);
+
+  return query select v_pos, v_cap;
+end;
+$$;
+
+comment on function public.badminton_public_signup(uuid, text, smallint)
+  is '公開報名：新增一筆到指定主辦人的名單，只回傳自己的順位與正取名額';
+
+revoke all on function public.badminton_public_signup(uuid, text, smallint) from public;
+grant execute on function public.badminton_public_signup(uuid, text, smallint) to anon, authenticated;
 
 
 -- ---------------------------------------------------------------------

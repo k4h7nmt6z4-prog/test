@@ -7,6 +7,11 @@
 //   owner_id    → 建立者，由資料庫自動填入目前登入的帳號
 //
 // 資料庫規則限定每個帳號只能讀寫自己的名單，網頁不需要也不能指定 owner_id。
+//
+// 兩種身分：
+//   主辦人（登入）：看名單、新增、刪除、按已繳費、設定正取名額、收到候補遞補通知
+//   一般人（不登入，透過報名連結 ?list=主辦人編號）：只能報名，
+//     經由資料庫函式 badminton_public_signup 新增一筆，看不到名單
 // 確認動作都在頁面上完成，不用 window.confirm（有些瀏覽器或內嵌視窗會封鎖跳出視窗）。
 (function () {
   "use strict";
@@ -39,6 +44,26 @@
   var authMessage = $("authMessage");
   var authLoading = $("authLoading");
   var appArea = $("appArea");
+  var publicCard = $("publicCard");
+
+  // ---- 報名連結的名單編號（?list=…）----
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  var LIST_KEY = "badminton-public-list";
+  var publicListId = null;
+  (function () {
+    var fromUrl = new URLSearchParams(location.search).get("list");
+    if (fromUrl && UUID_RE.test(fromUrl)) {
+      publicListId = fromUrl.toLowerCase();
+      // 記住名單編號：加到主畫面後從圖示打開（網址沒有 ?list=）也能報名
+      try { localStorage.setItem(LIST_KEY, publicListId); } catch (e) { /* 記不住也能用連結報名 */ }
+    } else {
+      try {
+        var saved = localStorage.getItem(LIST_KEY);
+        if (saved && UUID_RE.test(saved)) publicListId = saved;
+      } catch (e) { /* 忽略 */ }
+    }
+  })();
+  var loginRequested = false;   // 一般人畫面按了「主辦人登入」
 
   var capacityMessage = $("capacityMessage");
 
@@ -207,12 +232,23 @@
       confirmedList.replaceChildren();
       waitlist.replaceChildren();
       appArea.hidden = true;
-      authCard.hidden = false;
+      // 有報名連結：顯示公開報名；沒有：顯示主辦人登入
+      var isPublic = !!publicListId && !loginRequested;
+      publicCard.hidden = !isPublic;
+      authCard.hidden = isPublic;
+      $("noListNote").hidden = !!publicListId;
+      $("headerPublic").hidden = !isPublic;
+      $("headerInfo").hidden = isPublic;
       return;
     }
     $("accountEmail").textContent = session.user.email || "";
     authCard.hidden = true;
+    publicCard.hidden = true;
+    $("headerPublic").hidden = true;
+    $("headerInfo").hidden = false;
     appArea.hidden = false;
+    $("shareLink").value = location.origin + location.pathname + "?list=" + userId;
+    show($("shareMessage"), "", "");
     if (userId !== currentUserId) {
       currentUserId = userId;
       rows = [];
@@ -615,6 +651,86 @@
       showListMessage("刪除失敗：" + describeError(err), "err");
     }
   }
+
+  // =====================================================================
+  // 公開報名（不用登入）
+  // =====================================================================
+  var publicForm = $("publicForm");
+  var publicSubmit = $("publicSubmit");
+  var publicMessage = $("publicMessage");
+
+  function describePublicError(err) {
+    var m = (err && err.message) || "";
+    if (err && (err.code === "PGRST202" || err.code === "42883")) {
+      return "報名功能還沒開通，請主辦人在 Supabase 重新執行 supabase/badminton_personal.sql。";
+    }
+    if (err && err.code === "P0002") return "找不到這份報名名單，請向主辦人確認報名連結。";
+    if (err && (err.code === "P0001" || err.code === "22023")) return m;
+    return describeError(err);
+  }
+
+  publicForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var name = $("publicName").value.trim();
+    var level = parseInt($("publicLevel").value, 10);
+    if (!name) { show(publicMessage, "請填寫名字。", "err"); return; }
+    if (!(level >= 1 && level <= 10)) { show(publicMessage, "請選擇程度（1～10）。", "err"); return; }
+    if (!publicListId) { show(publicMessage, "沒有報名連結，請向主辦人索取。", "err"); return; }
+
+    publicSubmit.disabled = true;
+    publicSubmit.textContent = "送出中…";
+    show(publicMessage, "", "");
+    try {
+      var res = await client.rpc("badminton_public_signup", {
+        p_list: publicListId,
+        p_name: name,
+        p_level: level,
+      });
+      if (res.error) throw res.error;
+      var row = Array.isArray(res.data) ? res.data[0] : res.data;
+      publicForm.reset();
+      if (!row) {
+        show(publicMessage, "報名成功！", "ok");
+      } else if (row.out_position <= row.out_capacity) {
+        show(publicMessage, "報名成功！「" + name + "」是正取第 " + row.out_position + " 位。", "ok");
+      } else {
+        show(publicMessage, "報名成功！正取已額滿，「" + name + "」排在候補第 " +
+          (row.out_position - row.out_capacity) + " 位。", "ok");
+      }
+    } catch (err) {
+      show(publicMessage, "報名失敗：" + describePublicError(err), "err");
+    } finally {
+      publicSubmit.disabled = false;
+      publicSubmit.textContent = "送出報名";
+    }
+  });
+
+  $("showLogin").addEventListener("click", function () {
+    loginRequested = true;
+    publicCard.hidden = true;
+    authCard.hidden = false;
+    $("headerPublic").hidden = true;
+    $("headerInfo").hidden = false;
+    $("authEmail").focus();
+  });
+
+  // ---- 主辦人：複製報名連結 ----
+  $("copyShare").addEventListener("click", async function () {
+    var input = $("shareLink");
+    var ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(input.value);
+        ok = true;
+      }
+    } catch (e) { /* 改用選取文字 */ }
+    if (!ok) {
+      input.focus();
+      input.select();
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    }
+    show($("shareMessage"), ok ? "已複製，可以貼到 LINE 或群組。" : "請長按連結自行複製。", ok ? "ok" : "info");
+  });
 
   // =====================================================================
   // 啟動：先確認是否已登入
