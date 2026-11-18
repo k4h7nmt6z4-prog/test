@@ -6,7 +6,7 @@
 //
 // 修改網頁檔案後不需要改這裡；只有要清掉舊快取時才把 CACHE 的版本號加一。
 
-var CACHE = "badminton-v4";
+var CACHE = "badminton-v5";
 var SUPABASE_LIB = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js";
 var SHELL = [
   "./badminton.html",
@@ -19,6 +19,8 @@ var SHELL = [
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./icons/apple-touch-icon.png",
+  "./images/banner-800.webp",
+  "./images/banner-1600.webp",
 ];
 
 self.addEventListener("install", function (event) {
