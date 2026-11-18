@@ -340,3 +340,32 @@ button.armed { background: var(--err) !important; color: #fff !important; }
 .danger-card h2 { color: var(--err); }
 .danger-btn { width: 100%; background: #fff; color: var(--err); border: 2px solid var(--err); }
 .danger-btn:hover:not(:disabled) { background: var(--err-bg); }
+
+/* ---- 其他減項 ---- */
+.other-box { margin: 0 0 14px; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; background: #fafcff; }
+.other-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 600; }
+.other-hint { margin: 4px 0 8px; }
+.other-list { display: grid; gap: 8px; }
+.other-row { display: flex; align-items: center; gap: 6px; }
+.other-row input[type="text"] {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; min-height: 44px;
+  border: 1px solid var(--border); border-radius: 10px; background: #fff; color: inherit;
+}
+.other-row .money-input input { width: 6.5em; }
+.other-row input:disabled { background: #f1f5f9; color: var(--muted); }
+button.other-del {
+  flex-shrink: 0; width: 40px; min-height: 40px; padding: 0; border-radius: 10px;
+  background: #fff; color: var(--err); border: 1px solid #f3b4ae; font-size: 1rem;
+}
+button.other-del:hover:not(:disabled) { background: var(--err-bg); }
+.money-sub { border-top: 0; margin: -8px 0 0; }
+.money-sub:empty { display: none; }
+.money-sub .sub dt, .money-sub .sub dd { font-size: .9rem; color: var(--muted); }
+.money-sub .sub dt { padding-left: 1em; overflow-wrap: anywhere; }
+.money-total { border-top: 2px solid #e2e8f0; margin-top: 0; }
+@media (max-width: 360px) {
+  .other-row { flex-wrap: wrap; }
+  .other-row input[type="text"] { flex-basis: 100%; }
+  .other-row .money-input { flex: 1 1 auto; }
+  .other-row .money-input input { width: 100%; }
+}

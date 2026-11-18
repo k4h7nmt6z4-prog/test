@@ -127,6 +127,9 @@ comment on table public.badminton_settings is '羽球報名個人設定（正取
 -- - fee_per_person：每人報名費，預設 300，0～100,000
 -- - ball_cost：今日用球花費，0～1,000,000
 -- - fund_balance：球團總餘額（今日之前），可為負數，±1 億以內
+-- - court_cost：今日場地費，0～1,000,000
+-- - other_items：其他減項（活動、請喝飲料、受傷退費…），
+--   格式 [{"name":"名稱","amount":金額}, …]，最多 20 筆
 -- 已存在的資料表也會補上欄位；重複執行不會出錯
 alter table public.badminton_settings
   add column if not exists fee_per_person integer not null default 300
@@ -137,12 +140,19 @@ alter table public.badminton_settings
 alter table public.badminton_settings
   add column if not exists fund_balance integer not null default 0
     constraint badminton_settings_fund_range check (fund_balance between -100000000 and 100000000);
+alter table public.badminton_settings
+  add column if not exists court_cost integer not null default 0
+    constraint badminton_settings_court_cost_range check (court_cost between 0 and 1000000);
+alter table public.badminton_settings
+  add column if not exists other_items jsonb not null default '[]'::jsonb
+    constraint badminton_settings_other_items_shape
+      check (jsonb_typeof(other_items) = 'array' and jsonb_array_length(other_items) <= 20);
 
 revoke all on table public.badminton_settings from public, anon, authenticated;
 grant select on table public.badminton_settings to authenticated;
-grant insert (capacity, fee_per_person, ball_cost, fund_balance)
+grant insert (capacity, fee_per_person, ball_cost, fund_balance, court_cost, other_items)
   on table public.badminton_settings to authenticated;
-grant update (capacity, updated_at, fee_per_person, ball_cost, fund_balance)
+grant update (capacity, updated_at, fee_per_person, ball_cost, fund_balance, court_cost, other_items)
   on table public.badminton_settings to authenticated;
 
 alter table public.badminton_settings enable row level security;

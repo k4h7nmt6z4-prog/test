@@ -30,8 +30,10 @@
   var hasSettingsRow = false;
   // 收費與球團帳（存在 badminton_settings）
   var DEFAULT_FEE = 300;
-  var money = { fee: DEFAULT_FEE, ball: 0, fund: 0 };
-  var financeReady = false;   // 資料庫已有收費欄位
+  var money = { fee: DEFAULT_FEE, ball: 0, fund: 0, court: 0, others: [] };
+  var financeReady = false;   // 資料庫已有收費欄位（報名費、用球、總餘額）
+  var extrasReady = false;    // 資料庫已有場地費、其他減項欄位
+  var MAX_OTHERS = 20;
 
   var $ = function (id) { return document.getElementById(id); };
   var form = $("signupForm");
@@ -243,8 +245,9 @@
       promoteDialog.hidden = true;
       capacity = DEFAULT_CAPACITY;
       hasSettingsRow = false;
-      money = { fee: DEFAULT_FEE, ball: 0, fund: 0 };
+      money = { fee: DEFAULT_FEE, ball: 0, fund: 0, court: 0, others: [] };
       financeReady = false;
+      extrasReady = false;
       showCapacity();
       show(capacityMessage, "", "");
       confirmedList.replaceChildren();
@@ -299,19 +302,28 @@
   async function loadSettings() {
     capacity = DEFAULT_CAPACITY;
     hasSettingsRow = false;
-    money = { fee: DEFAULT_FEE, ball: 0, fund: 0 };
+    money = { fee: DEFAULT_FEE, ball: 0, fund: 0, court: 0, others: [] };
     financeReady = false;
+    extrasReady = false;
     show(capacityMessage, "", "");
     show($("moneyMessage"), "", "");
     try {
+      // 依資料庫目前的欄位，由多到少嘗試讀取
       var res = await client.from(SETTINGS_TABLE)
-        .select("capacity, fee_per_person, ball_cost, fund_balance").maybeSingle();
-      if (res.error && isMissingColumn(res.error)) {
-        // 資料庫還沒加收費欄位：先只讀正取名額
-        res = await client.from(SETTINGS_TABLE).select("capacity").maybeSingle();
-        show($("moneyMessage"), "收費與球團帳還沒開通，請在 Supabase 重新執行 supabase/badminton_personal.sql。", "err");
-      } else if (!res.error) {
-        financeReady = true;
+        .select("capacity, fee_per_person, ball_cost, fund_balance, court_cost, other_items").maybeSingle();
+      if (!res.error) {
+        financeReady = extrasReady = true;
+      } else if (isMissingColumn(res.error)) {
+        res = await client.from(SETTINGS_TABLE)
+          .select("capacity, fee_per_person, ball_cost, fund_balance").maybeSingle();
+        if (!res.error) {
+          financeReady = true;
+          show($("moneyMessage"), "「今日場地費」與「其他」還沒開通，請在 Supabase 執行新增欄位的 SQL。", "err");
+        } else if (isMissingColumn(res.error)) {
+          // 資料庫還沒加收費欄位：先只讀正取名額
+          res = await client.from(SETTINGS_TABLE).select("capacity").maybeSingle();
+          show($("moneyMessage"), "收費與球團帳還沒開通，請在 Supabase 重新執行 supabase/badminton_personal.sql。", "err");
+        }
       }
       if (res.error) throw res.error;
       if (res.data) {
@@ -321,6 +333,10 @@
           money.fee = res.data.fee_per_person;
           money.ball = res.data.ball_cost;
           money.fund = res.data.fund_balance;
+        }
+        if (extrasReady) {
+          money.court = res.data.court_cost;
+          money.others = cleanOthers(res.data.other_items);
         }
       }
     } catch (err) {
@@ -383,24 +399,55 @@
   // =====================================================================
   // 收費與球團帳（只有主辦人看得到）
   //   今日應收 = 正取人數 × 每人報名費
-  //   今日餘額 = 球團總餘額 + 今日應收 − 今日用球
+  //   今日餘額 = 球團總餘額 + 今日應收 − 今日場地費 − 今日用球 − 其他
   // =====================================================================
   var moneyFmt = new Intl.NumberFormat("zh-TW");
   function nt(n) { return (n < 0 ? "−" : "") + moneyFmt.format(Math.abs(n)) + " 元"; }
   var lastCounts = { confirmed: 0, paid: 0 };
 
+  // 其他減項：只保留名稱 1～30 字、金額 0～1,000,000 的整數
+  function cleanOthers(list) {
+    if (!Array.isArray(list)) return [];
+    return list.filter(function (it) {
+      return it && typeof it.name === "string" && Number.isInteger(it.amount);
+    }).slice(0, MAX_OTHERS).map(function (it) {
+      return { name: it.name.slice(0, 30), amount: it.amount };
+    });
+  }
+  function othersTotal() {
+    return money.others.reduce(function (sum, it) { return sum + it.amount; }, 0);
+  }
+
   function showMoneyInputs() {
     $("feeInput").value = String(money.fee);
+    $("courtInput").value = String(money.court);
     $("ballInput").value = String(money.ball);
     $("fundInput").value = String(money.fund);
     ["feeInput", "ballInput", "fundInput", "settleBtn"].forEach(function (id) { $(id).disabled = !financeReady; });
+    ["courtInput", "addOtherBtn"].forEach(function (id) { $(id).disabled = !extrasReady; });
+    renderOthersEditor();
     renderMoney(lastCounts.confirmed, lastCounts.paid);
   }
 
   function renderMoney(confirmedCount, paidCount) {
     lastCounts = { confirmed: confirmedCount, paid: paidCount };
     var due = confirmedCount * money.fee;
-    var balance = money.fund + due - money.ball;
+    var other = othersTotal();
+    var balance = money.fund + due - money.court - money.ball - other;
+    $("moneyCourt").textContent = "− " + nt(money.court);
+    $("moneyOther").textContent = "− " + nt(other);
+    $("moneyOtherLabel").textContent = "其他" + (money.others.length ? "（" + money.others.length + " 項）" : "");
+    // 其他明細
+    var detail = $("moneyOtherDetail");
+    detail.replaceChildren();
+    money.others.forEach(function (it) {
+      var row = document.createElement("div");
+      row.className = "sub";
+      var dt = document.createElement("dt"); dt.textContent = "・" + (it.name || "（未命名）");
+      var dd = document.createElement("dd"); dd.textContent = "− " + nt(it.amount);
+      row.appendChild(dt); row.appendChild(dd);
+      detail.appendChild(row);
+    });
     $("moneyPeople").textContent = confirmedCount + " 人";
     $("moneyFeeEcho").textContent = nt(money.fee);
     $("moneyDue").textContent = nt(due);
@@ -416,6 +463,7 @@
 
   // 輸入框：離開或按 Enter 時儲存
   [["feeInput", "fee_per_person", "fee", 0, 100000, "每人報名費"],
+   ["courtInput", "court_cost", "court", 0, 1000000, "今日場地費"],
    ["ballInput", "ball_cost", "ball", 0, 1000000, "今日用球"],
    ["fundInput", "fund_balance", "fund", -100000000, 100000000, "球團總餘額"]].forEach(function (cfgRow) {
     var input = $(cfgRow[0]), col = cfgRow[1], key = cfgRow[2], min = cfgRow[3], max = cfgRow[4], label = cfgRow[5];
@@ -445,6 +493,96 @@
           : describeSettingsError(err)), "err");
       }
     });
+  });
+
+  // ---- 其他減項（活動、請喝飲料、受傷退費…）----
+  // 每筆有名稱與金額；新增、修改、刪除後整份清單一起儲存
+  function renderOthersEditor() {
+    var box = $("otherList");
+    box.replaceChildren();
+    money.others.forEach(function (it, idx) {
+      var row = document.createElement("div");
+      row.className = "other-row";
+
+      var name = document.createElement("input");
+      name.type = "text"; name.maxLength = 30; name.placeholder = "名稱，例如：請喝飲料";
+      name.value = it.name; name.disabled = !extrasReady;
+      name.setAttribute("aria-label", "其他第 " + (idx + 1) + " 項名稱");
+
+      var amount = document.createElement("input");
+      amount.type = "number"; amount.inputMode = "numeric"; amount.min = "0"; amount.max = "1000000"; amount.step = "1";
+      amount.value = String(it.amount); amount.disabled = !extrasReady;
+      amount.setAttribute("aria-label", "其他第 " + (idx + 1) + " 項金額");
+
+      var unit = document.createElement("em"); unit.textContent = "元";
+
+      var del = document.createElement("button");
+      del.type = "button"; del.className = "other-del"; del.textContent = "✕"; del.disabled = !extrasReady;
+      del.setAttribute("aria-label", "刪除「" + (it.name || "第 " + (idx + 1) + " 項") + "」");
+
+      name.addEventListener("change", function () {
+        var v = name.value.trim();
+        if (v === it.name) return;
+        var next = money.others.slice(); next[idx] = { name: v, amount: it.amount };
+        saveOthers(next, "已儲存其他項目名稱。");
+      });
+      amount.addEventListener("change", function () {
+        var v = Number(String(amount.value).replace(/[,\s]/g, ""));
+        if (!Number.isInteger(v) || v < 0 || v > 1000000) {
+          show($("moneyMessage"), "其他金額請輸入 0～1,000,000 的整數。", "err");
+          amount.value = String(it.amount);
+          return;
+        }
+        if (v === it.amount) return;
+        var next = money.others.slice(); next[idx] = { name: it.name, amount: v };
+        saveOthers(next, "已儲存「" + (it.name || "其他") + "」：" + nt(v) + "。");
+      });
+      del.addEventListener("click", function () {
+        var next = money.others.slice(); next.splice(idx, 1);
+        saveOthers(next, "已刪除「" + (it.name || "其他") + "」。");
+      });
+
+      var amountWrap = document.createElement("span");
+      amountWrap.className = "money-input";
+      amountWrap.appendChild(amount); amountWrap.appendChild(unit);
+      row.appendChild(name); row.appendChild(amountWrap); row.appendChild(del);
+      box.appendChild(row);
+    });
+    $("addOtherBtn").disabled = !extrasReady || money.others.length >= MAX_OTHERS;
+  }
+
+  async function saveOthers(next, okText) {
+    var msg = $("moneyMessage");
+    var prev = money.others;
+    money.others = next;
+    renderOthersEditor();
+    renderMoney(lastCounts.confirmed, lastCounts.paid);
+    show(msg, "儲存中…", "info");
+    try {
+      await saveSettings({ other_items: next });
+      show(msg, okText, "ok");
+      return true;
+    } catch (err) {
+      money.others = prev;
+      renderOthersEditor();
+      renderMoney(lastCounts.confirmed, lastCounts.paid);
+      show(msg, "儲存失敗：" + (isMissingColumn(err)
+        ? "「其他」還沒開通，請在 Supabase 執行新增欄位的 SQL。"
+        : describeSettingsError(err)), "err");
+      return false;
+    }
+  }
+
+  $("addOtherBtn").addEventListener("click", async function () {
+    if (money.others.length >= MAX_OTHERS) {
+      show($("moneyMessage"), "其他項目最多 " + MAX_OTHERS + " 筆。", "err");
+      return;
+    }
+    var ok = await saveOthers(money.others.concat([{ name: "", amount: 0 }]), "已新增一筆，請填寫名稱與金額。");
+    if (ok) {
+      var rowsEl = $("otherList").querySelectorAll(".other-row input[type=text]");
+      if (rowsEl.length) rowsEl[rowsEl.length - 1].focus();
+    }
   });
 
   // 按兩次確認的按鈕：第一次按顯示確認文字，5 秒內再按才執行
@@ -477,17 +615,20 @@
   }, async function () {
     var msg = $("moneyMessage");
     var newFund = renderMoney(lastCounts.confirmed, lastCounts.paid);
-    var prev = { fund: money.fund, ball: money.ball };
+    var prev = { fund: money.fund, ball: money.ball, court: money.court, others: money.others };
     $("settleBtn").disabled = true;
     show(msg, "結算中…", "info");
     try {
-      await saveSettings({ fund_balance: newFund, ball_cost: 0 });
+      var patch = { fund_balance: newFund, ball_cost: 0 };
+      if (extrasReady) { patch.court_cost = 0; patch.other_items = []; }
+      await saveSettings(patch);
       money.fund = newFund;
       money.ball = 0;
+      if (extrasReady) { money.court = 0; money.others = []; }
       showMoneyInputs();
-      show(msg, "已結算：球團總餘額為 " + nt(newFund) + "，今日用球已歸零。下一次開放報名前，請按下方「清除全部名單」，今日應收才會歸零。", "ok");
+      show(msg, "已結算：球團總餘額為 " + nt(newFund) + "，今日場地費、用球、其他已歸零。下一次開放報名前，請按下方「清除全部名單」，今日應收才會歸零。", "ok");
     } catch (err) {
-      money.fund = prev.fund; money.ball = prev.ball;
+      money.fund = prev.fund; money.ball = prev.ball; money.court = prev.court; money.others = prev.others;
       showMoneyInputs();
       show(msg, "結算失敗：" + (isMissingColumn(err)
         ? "收費與球團帳還沒開通，請在 Supabase 重新執行 supabase/badminton_personal.sql。"
