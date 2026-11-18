@@ -277,3 +277,24 @@ button.link-btn:hover:not(:disabled) { background: none; color: var(--primary-da
 @media (display-mode: standalone) {
   .site-header.banner-header { padding-top: env(safe-area-inset-top); }
 }
+
+/* ---- 圖片送出按鈕（images/submit-*.webp，比例 3:1）---- */
+button.image-submit {
+  position: relative; display: block; width: 100%; max-width: 520px; margin: 0 auto;
+  padding: 0; min-height: 0; border-radius: 14px; overflow: hidden; line-height: 0;
+  background: #0a6fd0; box-shadow: 0 6px 16px rgba(10, 111, 208, .28);
+  transition: transform .08s ease, box-shadow .15s ease, filter .15s ease;
+}
+button.image-submit img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 1; }
+button.image-submit:hover:not(:disabled) { background: #0a6fd0; filter: brightness(1.06); box-shadow: 0 8px 20px rgba(10, 111, 208, .35); }
+button.image-submit:active:not(:disabled) { transform: scale(.98); }
+button.image-submit:focus-visible { outline: 3px solid #ffb703; outline-offset: 3px; }
+button.image-submit:disabled { opacity: 1; cursor: progress; }
+button.image-submit:disabled img { filter: blur(2px); }
+.submit-busy {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.25rem; font-weight: 700; line-height: 1.2; letter-spacing: .1em;
+  /* 蓋住圖上的「送出報名」字樣，只顯示「送出中…」 */
+  background: rgba(6, 36, 82, .82);
+}
+.submit-busy[hidden] { display: none; }

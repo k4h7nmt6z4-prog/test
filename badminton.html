@@ -67,7 +67,14 @@
             <option value="10">10</option>
           </select>
         </div>
-        <button type="submit" id="publicSubmit">送出報名</button>
+        <!-- 送出按鈕使用圖片（圖裡已有「送出報名」字樣） -->
+        <button type="submit" id="publicSubmit" class="image-submit" aria-label="送出報名">
+          <img src="images/submit-1600.webp"
+               srcset="images/submit-800.webp 800w, images/submit-1600.webp 1600w"
+               sizes="(max-width: 600px) calc(100vw - 72px), 520px"
+               width="1600" height="534" alt="">
+          <span class="submit-busy" hidden>送出中…</span>
+        </button>
         <p id="publicMessage" class="message" role="status" aria-live="polite"></p>
       </form>
       <p class="note">報名後若要取消或已繳費，請聯絡主辦人。</p>
