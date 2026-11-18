@@ -6,9 +6,26 @@
   var HIDE_KEY = "badminton-install-dismissed";
 
   // ---- Service Worker ----
+  // - 每次打開或切回 App 都檢查有沒有新版
+  // - 新版接手後自動重新整理一次，畫面立刻換成新版
   if ("serviceWorker" in navigator) {
+    var hadController = !!navigator.serviceWorker.controller;
+    var reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      // 第一次安裝（原本沒有 Service Worker）不需要重新整理
+      if (!hadController || reloading) return;
+      reloading = true;
+      location.reload();
+    });
+
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("sw.js").catch(function () {
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function (reg) {
+        function check() { reg.update().catch(function () { /* 離線時略過 */ }); }
+        document.addEventListener("visibilitychange", function () {
+          if (document.visibilityState === "visible") check();
+        });
+        window.addEventListener("pageshow", function (e) { if (e.persisted) check(); });
+      }).catch(function () {
         // 註冊失敗不影響網頁使用
       });
     });

@@ -6,7 +6,7 @@
 //
 // 修改網頁檔案後不需要改這裡；只有要清掉舊快取時才把 CACHE 的版本號加一。
 
-var CACHE = "badminton-v6";
+var CACHE = "badminton-v7";
 var SUPABASE_LIB = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js";
 var SHELL = [
   "./badminton.html",
@@ -71,9 +71,13 @@ self.addEventListener("fetch", function (event) {
   }
 
   // 同網站的檔案：網路優先，離線時用快取
+  // 一律向伺服器確認是否有新版（cache: "no-cache"），避免拿到瀏覽器暫存的舊檔
   if (url.origin === self.location.origin) {
+    var fresh = req.mode === "navigate"
+      ? fetch(req.url, { cache: "no-cache", credentials: "same-origin" })
+      : fetch(req, { cache: "no-cache" });
     event.respondWith(
-      fetch(req).then(function (res) {
+      fresh.then(function (res) {
         if (res.ok) {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copy); });
