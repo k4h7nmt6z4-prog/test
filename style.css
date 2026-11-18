@@ -237,3 +237,12 @@ button.link-btn:hover:not(:disabled) { background: none; color: var(--primary-da
 .promote-list { margin: 0 0 18px; padding-left: 1.2em; }
 .promote-list li { padding: 4px 0; overflow-wrap: anywhere; }
 .modal button { width: 100%; font-size: 1.05rem; }
+
+/* ---- 報名連結 ---- */
+.share-intro { margin: -4px 0 10px; }
+.share-row { display: flex; gap: 8px; }
+.share-row input {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 14px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: #f8fafc; color: var(--text);
+}
+.share-row button { flex-shrink: 0; padding: 10px 16px; min-height: 44px; }
