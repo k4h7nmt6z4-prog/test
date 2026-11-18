@@ -306,3 +306,37 @@ button.image-submit:disabled img { filter: blur(2px); }
   /* 圖比文字高，往上下延伸一點，不把卡片撐太高 */
   margin: -14px 0 -10px;
 }
+
+/* ---- 收費與球團帳 ---- */
+.money-inputs { display: grid; gap: 10px; margin-bottom: 14px; }
+.money-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
+.money-input { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.money-input input {
+  width: 9.5em; font: inherit; font-size: 16px; text-align: right; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px; min-height: 44px; background: #fff; color: inherit;
+}
+.money-input input:disabled { background: #f1f5f9; color: var(--muted); }
+.money-input em { font-style: normal; color: var(--muted); }
+.money-table { margin: 0 0 8px; border-top: 1px solid #e2e8f0; }
+.money-table > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+.money-table dt { color: var(--muted); }
+.money-table dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.money-table .strong dd { font-weight: 700; color: var(--primary); }
+.money-table .muted dt, .money-table .muted dd { font-size: .9rem; color: var(--muted); }
+.money-table .sep { margin-top: 6px; border-top: 2px solid #e2e8f0; }
+.money-table .total { border-bottom: 0; padding-top: 12px; }
+.money-table .total dt { color: var(--text); font-weight: 700; font-size: 1.05rem; }
+.money-table .total dd { font-weight: 800; font-size: 1.4rem; color: var(--ok); }
+.money-table .total dd.negative { color: var(--err); }
+.settle-btn { width: 100%; margin-top: 4px; white-space: normal; line-height: 1.4; padding: 12px 14px; min-height: 48px; }
+button.armed { background: var(--err) !important; color: #fff !important; }
+@media (max-width: 360px) {
+  .money-field { flex-direction: column; align-items: stretch; gap: 4px; }
+  .money-input input { width: 100%; }
+}
+
+/* ---- 重新開放報名 ---- */
+.danger-card { border: 1px solid #f3b4ae; }
+.danger-card h2 { color: var(--err); }
+.danger-btn { width: 100%; background: #fff; color: var(--err); border: 2px solid var(--err); }
+.danger-btn:hover:not(:disabled) { background: var(--err-bg); }

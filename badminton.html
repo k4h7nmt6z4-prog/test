@@ -161,6 +161,38 @@
       </div>
     </section>
 
+    <!-- 收費與球團帳（只有主辦人看得到） -->
+    <section class="card money-card" aria-labelledby="money-title">
+      <h2 id="money-title">收費與球團帳</h2>
+      <div class="money-inputs">
+        <label class="money-field">
+          <span>每人報名費</span>
+          <span class="money-input"><input id="feeInput" type="number" inputmode="numeric" min="0" max="100000" step="1" value="300"><em>元</em></span>
+        </label>
+        <label class="money-field">
+          <span>今日用球</span>
+          <span class="money-input"><input id="ballInput" type="number" inputmode="numeric" min="0" max="1000000" step="1" value="0"><em>元</em></span>
+        </label>
+        <label class="money-field">
+          <span>球團總餘額（今日前）</span>
+          <span class="money-input"><input id="fundInput" type="number" inputmode="numeric" min="-100000000" max="100000000" step="1" value="0"><em>元</em></span>
+        </label>
+      </div>
+      <dl class="money-table">
+        <div><dt>報名人數（正取）</dt><dd id="moneyPeople">–</dd></div>
+        <div><dt>每人報名費</dt><dd id="moneyFeeEcho">–</dd></div>
+        <div class="strong"><dt>今日應收</dt><dd id="moneyDue">–</dd></div>
+        <div class="muted"><dt>其中已繳費</dt><dd id="moneyPaid">–</dd></div>
+        <div class="sep"><dt>球團總餘額</dt><dd id="moneyFund">–</dd></div>
+        <div><dt>＋ 今日應收</dt><dd id="moneyDue2" aria-hidden="true"></dd></div>
+        <div><dt>今日用球</dt><dd id="moneyBall">–</dd></div>
+        <div class="total"><dt>今日餘額</dt><dd id="moneyBalance">–</dd></div>
+      </dl>
+      <p class="note">今日餘額 ＝ 球團總餘額 ＋ 今日應收 − 今日用球。候補不列入應收。<br>打完球的流程：先按「結算今日」，再到最下方按「清除全部名單」重新開放報名。</p>
+      <button type="button" id="settleBtn" class="secondary settle-btn">結算今日（存為球團總餘額）</button>
+      <p id="moneyMessage" class="message" role="status" aria-live="polite"></p>
+    </section>
+
     <section class="card" aria-labelledby="form-title">
       <h2 id="form-title">新增報名</h2>
       <form id="signupForm" novalidate>
@@ -218,6 +250,14 @@
       <h2 id="waitlist-title">候補名單</h2>
       <p id="waitlistEmpty" class="message info">目前沒有候補。</p>
       <ol id="waitlist" class="player-list"></ol>
+    </section>
+
+    <!-- 重新開放報名：一鍵清除名單（只有主辦人） -->
+    <section class="card danger-card" aria-labelledby="clear-title">
+      <h2 id="clear-title">重新開放報名</h2>
+      <p class="note">清除名單上所有人員（包含候補），讓大家重新報名。正取名額、報名費、球團帳不受影響。清除後無法復原。</p>
+      <button type="button" id="clearAllBtn" class="danger-btn">清除全部名單</button>
+      <p id="clearMessage" class="message" role="status" aria-live="polite"></p>
     </section>
     </div>
   </main>

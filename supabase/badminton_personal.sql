@@ -108,7 +108,7 @@ create policy badminton_players_delete_own
 
 
 -- ---------------------------------------------------------------------
--- 個人設定：正取名額（8／16／24／32／40 人，每場 8 人）
+-- 個人設定：正取名額（8／16／24／32／40 人，每場 8 人）、收費與球團帳
 -- - 每個帳號最多一筆，owner_id 就是主鍵；沒有設定時網頁預設 32 人。
 -- - 只能讀取、新增、修改自己的設定；訪客完全不能使用。
 -- ---------------------------------------------------------------------
@@ -121,12 +121,29 @@ create table if not exists public.badminton_settings (
   updated_at  timestamptz not null default now()
 );
 
-comment on table public.badminton_settings is '羽球報名個人設定（正取名額）';
+comment on table public.badminton_settings is '羽球報名個人設定（正取名額、收費與球團帳）';
+
+-- 收費與球團帳（單位：新臺幣元，整數）
+-- - fee_per_person：每人報名費，預設 300，0～100,000
+-- - ball_cost：今日用球花費，0～1,000,000
+-- - fund_balance：球團總餘額（今日之前），可為負數，±1 億以內
+-- 已存在的資料表也會補上欄位；重複執行不會出錯
+alter table public.badminton_settings
+  add column if not exists fee_per_person integer not null default 300
+    constraint badminton_settings_fee_range check (fee_per_person between 0 and 100000);
+alter table public.badminton_settings
+  add column if not exists ball_cost integer not null default 0
+    constraint badminton_settings_ball_cost_range check (ball_cost between 0 and 1000000);
+alter table public.badminton_settings
+  add column if not exists fund_balance integer not null default 0
+    constraint badminton_settings_fund_range check (fund_balance between -100000000 and 100000000);
 
 revoke all on table public.badminton_settings from public, anon, authenticated;
 grant select on table public.badminton_settings to authenticated;
-grant insert (capacity) on table public.badminton_settings to authenticated;
-grant update (capacity, updated_at) on table public.badminton_settings to authenticated;
+grant insert (capacity, fee_per_person, ball_cost, fund_balance)
+  on table public.badminton_settings to authenticated;
+grant update (capacity, updated_at, fee_per_person, ball_cost, fund_balance)
+  on table public.badminton_settings to authenticated;
 
 alter table public.badminton_settings enable row level security;
 
