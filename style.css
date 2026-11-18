@@ -219,3 +219,21 @@ button.link-btn:hover:not(:disabled) { background: none; color: var(--primary-da
 .segmented.five { grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .segmented.five label { padding: 12px 0; font-size: .95rem; white-space: nowrap; }
 @media (max-width: 360px) { .segmented.five label { font-size: .85rem; } }
+
+/* ---- 候補遞補通知 ---- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(15, 23, 42, .55);
+}
+.modal-backdrop[hidden] { display: none; }
+.modal {
+  width: 100%; max-width: 420px; max-height: calc(100vh - 32px); overflow-y: auto;
+  background: #fff; border-radius: 16px; padding: 22px 20px 20px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, .3);
+}
+.modal h2 { margin: 0 0 8px; color: var(--ok); font-size: 1.25rem; }
+.modal p { margin: 0 0 8px; }
+.promote-list { margin: 0 0 18px; padding-left: 1.2em; }
+.promote-list li { padding: 4px 0; overflow-wrap: anywhere; }
+.modal button { width: 100%; font-size: 1.05rem; }

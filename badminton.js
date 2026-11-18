@@ -197,6 +197,9 @@
     if (!userId) {
       currentUserId = null;
       rows = [];
+      listLoaded = false;
+      pendingSnapshot = null;
+      promoteDialog.hidden = true;
       capacity = DEFAULT_CAPACITY;
       hasSettingsRow = false;
       showCapacity();
@@ -213,6 +216,7 @@
     if (userId !== currentUserId) {
       currentUserId = userId;
       rows = [];
+      listLoaded = false;
       await loadSettings();
       await loadList();
     }
@@ -363,7 +367,78 @@
     waitlistEmpty.hidden = waiting.length > 0;
     if (!rows.length) show(listMessage, "名單還是空的，從上方新增第一位吧。", "info");
     else show(listMessage, "", "");
+
+    checkPromotions(confirmed, waiting);
   }
+
+  // =====================================================================
+  // 候補遞補通知
+  // - 記住「上次確認時」的候補名單（存在這台裝置，依帳號分開）。
+  // - 之後若其中有人變成正取（有人被刪除、正取名額增加），就跳出通知，
+  //   按「確認 OK」後才更新紀錄；沒按就關掉頁面，下次打開仍會通知。
+  // =====================================================================
+  var listLoaded = false;
+  var promoteDialog = $("promoteDialog");
+  var pendingSnapshot = null;
+
+  function snapshotKey() { return "badminton-waitlist-" + currentUserId; }
+
+  function readSnapshot() {
+    try {
+      var raw = localStorage.getItem(snapshotKey());
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function writeSnapshot(waitIds) {
+    try { localStorage.setItem(snapshotKey(), JSON.stringify({ wait: waitIds })); } catch (e) { /* 無法記住時只會少一次通知 */ }
+  }
+
+  function checkPromotions(confirmed, waiting) {
+    if (!listLoaded || !currentUserId) return;
+    var waitIds = waiting.map(function (r) { return r.id; });
+    var snap = readSnapshot();
+    var prevWait = snap && Array.isArray(snap.wait) ? snap.wait : null;
+
+    var promoted = [];
+    if (prevWait) {
+      confirmed.forEach(function (r, i) {
+        if (prevWait.indexOf(r.id) >= 0) promoted.push({ name: r.name, pos: i + 1 });
+      });
+    }
+
+    if (!promoted.length) {
+      // 沒有新的遞補：直接更新紀錄，並關閉可能還開著的通知
+      writeSnapshot(waitIds);
+      pendingSnapshot = null;
+      promoteDialog.hidden = true;
+      return;
+    }
+
+    // 有人遞補：先不更新紀錄，等管理員按「確認 OK」
+    pendingSnapshot = waitIds;
+    var list = $("promoteList");
+    list.replaceChildren();
+    promoted.forEach(function (p) {
+      var li = document.createElement("li");
+      var strong = document.createElement("strong");
+      strong.textContent = p.name;
+      li.appendChild(strong);
+      li.appendChild(document.createTextNode(" → 正取第 " + p.pos + " 位"));
+      list.appendChild(li);
+    });
+    $("promoteText").textContent = "以下 " + promoted.length + " 位已從候補遞補為正取：";
+    if (promoteDialog.hidden) {
+      promoteDialog.hidden = false;
+      $("promoteOk").focus();
+    }
+  }
+
+  $("promoteOk").addEventListener("click", function () {
+    if (pendingSnapshot) writeSnapshot(pendingSnapshot);
+    pendingSnapshot = null;
+    promoteDialog.hidden = true;
+  });
 
   async function loadList() {
     if (!currentUserId) return false;
@@ -380,6 +455,7 @@
         .limit(MAX_ROWS);
       if (res.error) throw res.error;
       rows = res.data;
+      listLoaded = true;
       render();
       return true;
     } catch (err) {
