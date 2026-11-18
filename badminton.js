@@ -2,7 +2,7 @@
 //
 // 資料表：badminton_players（見 supabase/badminton_personal.sql）
 //   name        → 名字
-//   level_note  → 程度備註（選填）
+//   level       → 程度，數字 1～10（舊資料可能只有文字的 level_note）
 //   paid        → 是否已繳費
 //   owner_id    → 建立者，由資料庫自動填入目前登入的帳號
 //
@@ -15,7 +15,7 @@
   var MAX_ROWS = 500;
 
   var cfg = window.APP_CONFIG || {};
-  var courts = Number(cfg.BADMINTON_COURTS) || 2;
+  var courts = Number(cfg.BADMINTON_COURTS) || 4;
   var perCourt = Number(cfg.BADMINTON_PLAYERS_PER_COURT) || 8;
   var capacity = courts * perCourt;
 
@@ -81,7 +81,8 @@
   function describeError(err) {
     if (!navigator.onLine) return "目前沒有網路連線，請連上網路後再試一次。";
     if (!err) return "未知錯誤";
-    if (err.code === "23514") return "內容不符合規定（例如名字太長）。";
+    if (err.code === "23514") return "內容不符合規定（例如名字太長、程度不在 1～10）。";
+    if (err.code === "42703" || err.code === "PGRST204") return "資料庫還沒有「程度」欄位，請在 Supabase 重新執行 supabase/badminton_personal.sql。";
     if (err.code === "42501") return "沒有權限，請確認已執行 supabase/badminton_personal.sql。";
     if (err.code === "42P01" || err.code === "PGRST205") return "找不到資料表，請先在 Supabase 執行 supabase/badminton_personal.sql。";
     if (err.status === 401 || /JWT|jwt/.test(err.message || "")) return "登入已過期，請重新登入。";
@@ -246,7 +247,8 @@
 
     var meta = document.createElement("div");
     meta.className = "item-meta";
-    var note = r.level_note && r.level_note.trim() ? "程度：" + r.level_note.trim() : "程度：未填";
+    var note = r.level != null ? "程度：" + r.level
+      : (r.level_note && r.level_note.trim() ? "程度：" + r.level_note.trim() : "程度：未填");
     meta.textContent = note + " · 加入 " + timeFmt.format(new Date(r.created_at));
     li.appendChild(meta);
     return li;
@@ -284,7 +286,7 @@
       // （資料庫規則只會回傳自己的名單）
       var res = await client
         .from(TABLE)
-        .select("id, created_at, name, level_note, paid")
+        .select("id, created_at, name, level, level_note, paid")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .limit(MAX_ROWS);
@@ -321,12 +323,16 @@
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
     var name = $("name").value.trim();
-    var note = $("level_note").value.trim();
+    var level = parseInt($("level").value, 10);
     var payChoice = form.querySelector('input[name="pay"]:checked');
     var paid = payChoice ? payChoice.value === "已繳費" : false;
 
     if (!name) {
       show(formMessage, "請填寫名字。", "err");
+      return;
+    }
+    if (!(level >= 1 && level <= 10)) {
+      show(formMessage, "請選擇程度（1～10）。", "err");
       return;
     }
     // 同名時在頁面上確認：再按一次「送出報名」才送出
@@ -346,7 +352,7 @@
       // owner_id 由資料庫自動填入目前登入的帳號
       var res = await client.from(TABLE).insert({
         name: name,
-        level_note: note || null,
+        level: level,
         paid: paid,
       });
       if (res.error) throw res.error;

@@ -45,6 +45,21 @@ create table if not exists public.badminton_players (
 
 comment on table public.badminton_players is '羽球報名名單（每個帳號各自一份）';
 
+-- 程度：數字 1～10（選填，舊資料可能沒有）
+-- 已存在的資料表也會補上這個欄位；重複執行不會出錯
+alter table public.badminton_players
+  add column if not exists level smallint
+    constraint badminton_players_level_range
+      check (level between 1 and 10);
+
+-- 舊資料：程度備註剛好是 1～10 的數字時，轉存到 level
+update public.badminton_players
+set level = btrim(level_note)::smallint
+where level is null
+  and btrim(level_note) ~ '^(10|[1-9])$';
+
+-- level_note（文字程度備註）保留給舊資料顯示，新版網頁不再寫入
+
 -- 依建立者與加入時間查詢時使用
 create index if not exists badminton_players_owner_created_idx
   on public.badminton_players (owner_id, created_at, id);
@@ -54,13 +69,13 @@ create index if not exists badminton_players_owner_created_idx
 -- 第 1 層：GRANT
 -- - 先收回所有權限，訪客（anon）完全不能使用這張表。
 -- - 登入的人（authenticated）可以：讀取、刪除、
---   新增時填寫名字／程度備註／是否已繳費、修改是否已繳費。
+--   新增時填寫名字／程度（1～10）／是否已繳費、修改是否已繳費。
 -- - id、owner_id、created_at 不開放填寫或修改，一律使用預設值。
 -- ---------------------------------------------------------------------
 revoke all on table public.badminton_players from public, anon, authenticated;
 
 grant select, delete on table public.badminton_players to authenticated;
-grant insert (name, level_note, paid) on table public.badminton_players to authenticated;
+grant insert (name, level, paid) on table public.badminton_players to authenticated;
 grant update (paid) on table public.badminton_players to authenticated;
 
 
