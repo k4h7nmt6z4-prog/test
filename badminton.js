@@ -664,6 +664,13 @@
   // =====================================================================
   var publicForm = $("publicForm");
   var publicSubmit = $("publicSubmit");
+
+  // 送出按鈕是圖片：送出中把圖片調暗並顯示「送出中…」，不要改掉按鈕內容
+  function setPublicBusy(busy) {
+    publicSubmit.disabled = busy;
+    publicSubmit.querySelector(".submit-busy").hidden = !busy;
+    publicSubmit.setAttribute("aria-label", busy ? "送出中" : "送出報名");
+  }
   var publicMessage = $("publicMessage");
 
   function describePublicError(err) {
@@ -684,8 +691,7 @@
     if (!(level >= 1 && level <= 10)) { show(publicMessage, "請選擇程度（1～10）。", "err"); return; }
     if (!publicListId) { show(publicMessage, "沒有報名連結，請向主辦人索取。", "err"); return; }
 
-    publicSubmit.disabled = true;
-    publicSubmit.textContent = "送出中…";
+    setPublicBusy(true);
     show(publicMessage, "", "");
     try {
       var res = await client.rpc("badminton_public_signup", {
@@ -707,8 +713,7 @@
     } catch (err) {
       show(publicMessage, "報名失敗：" + describePublicError(err), "err");
     } finally {
-      publicSubmit.disabled = false;
-      publicSubmit.textContent = "送出報名";
+      setPublicBusy(false);
     }
   });
 
