@@ -15,9 +15,14 @@
   var MAX_ROWS = 500;
 
   var cfg = window.APP_CONFIG || {};
-  var courts = Number(cfg.BADMINTON_COURTS) || 4;
+  // 正取名額：每個帳號在頁面上自選（存在 badminton_settings），沒設定時用預設值
+  var SETTINGS_TABLE = "badminton_settings";
+  var CAPACITY_OPTIONS = [8, 16, 24, 32, 40];
   var perCourt = Number(cfg.BADMINTON_PLAYERS_PER_COURT) || 8;
-  var capacity = courts * perCourt;
+  var DEFAULT_CAPACITY = (Number(cfg.BADMINTON_COURTS) || 4) * perCourt;
+  if (CAPACITY_OPTIONS.indexOf(DEFAULT_CAPACITY) < 0) DEFAULT_CAPACITY = 32;
+  var capacity = DEFAULT_CAPACITY;
+  var hasSettingsRow = false;
 
   var $ = function (id) { return document.getElementById(id); };
   var form = $("signupForm");
@@ -35,10 +40,18 @@
   var authLoading = $("authLoading");
   var appArea = $("appArea");
 
-  $("courtsText").textContent = String(courts);
-  $("perCourtText").textContent = String(perCourt);
-  $("capacityText").textContent = String(capacity);
-  $("capacityStat").textContent = String(capacity);
+  var capacityMessage = $("capacityMessage");
+
+  // 把目前的正取名額顯示到頁首、統計與選項
+  function showCapacity() {
+    $("courtsText").textContent = String(Math.ceil(capacity / perCourt));
+    $("perCourtText").textContent = String(perCourt);
+    $("capacityText").textContent = String(capacity);
+    $("capacityStat").textContent = String(capacity);
+    var radio = document.getElementById("cap-" + capacity);
+    if (radio) radio.checked = true;
+  }
+  showCapacity();
 
   function show(el, text, kind) {
     el.textContent = text;
@@ -184,6 +197,10 @@
     if (!userId) {
       currentUserId = null;
       rows = [];
+      capacity = DEFAULT_CAPACITY;
+      hasSettingsRow = false;
+      showCapacity();
+      show(capacityMessage, "", "");
       confirmedList.replaceChildren();
       waitlist.replaceChildren();
       appArea.hidden = true;
@@ -196,6 +213,7 @@
     if (userId !== currentUserId) {
       currentUserId = userId;
       rows = [];
+      await loadSettings();
       await loadList();
     }
   }
@@ -204,6 +222,76 @@
   client.auth.onAuthStateChange(function (event, session) {
     if (event === "SIGNED_OUT") applySession(null);
     else if (event === "SIGNED_IN" && session) setTimeout(function () { applySession(session); }, 0);
+  });
+
+  // =====================================================================
+  // 正取名額設定
+  // =====================================================================
+  function describeSettingsError(err) {
+    if (err && (err.code === "42P01" || err.code === "PGRST205")) {
+      return "資料庫還沒有設定資料表，請在 Supabase 重新執行 supabase/badminton_personal.sql。";
+    }
+    return describeError(err);
+  }
+
+  async function loadSettings() {
+    capacity = DEFAULT_CAPACITY;
+    hasSettingsRow = false;
+    show(capacityMessage, "", "");
+    try {
+      var res = await client.from(SETTINGS_TABLE).select("capacity").maybeSingle();
+      if (res.error) throw res.error;
+      if (res.data && CAPACITY_OPTIONS.indexOf(res.data.capacity) >= 0) {
+        capacity = res.data.capacity;
+        hasSettingsRow = true;
+      }
+    } catch (err) {
+      show(capacityMessage, "無法讀取正取名額設定，暫時使用 " + DEFAULT_CAPACITY + " 人。" + describeSettingsError(err), "err");
+    }
+    showCapacity();
+  }
+
+  async function saveCapacity(next) {
+    var prev = capacity;
+    capacity = next;
+    showCapacity();
+    render();
+    show(capacityMessage, "儲存中…", "info");
+    try {
+      var res;
+      if (hasSettingsRow) {
+        res = await client.from(SETTINGS_TABLE)
+          .update({ capacity: next, updated_at: new Date().toISOString() })
+          .eq("owner_id", currentUserId)
+          .select("capacity");
+      } else {
+        // owner_id 由資料庫自動填入目前登入的帳號
+        res = await client.from(SETTINGS_TABLE).insert({ capacity: next }).select("capacity");
+        if (res.error && res.error.code === "23505") {
+          // 已經有設定（例如另一台裝置剛建立）：改成更新
+          res = await client.from(SETTINGS_TABLE)
+            .update({ capacity: next, updated_at: new Date().toISOString() })
+            .eq("owner_id", currentUserId)
+            .select("capacity");
+        }
+      }
+      if (res.error) throw res.error;
+      if (!res.data || res.data.length !== 1) throw { code: "42501" };
+      hasSettingsRow = true;
+      show(capacityMessage, "已改為正取 " + next + " 人（" + Math.ceil(next / perCourt) + " 場）。", "ok");
+    } catch (err) {
+      capacity = prev;
+      showCapacity();
+      render();
+      show(capacityMessage, "儲存失敗：" + describeSettingsError(err), "err");
+    }
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="capacity"]'), function (radio) {
+    radio.addEventListener("change", function () {
+      var next = parseInt(radio.value, 10);
+      if (currentUserId && next !== capacity) saveCapacity(next);
+    });
   });
 
   // =====================================================================

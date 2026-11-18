@@ -108,6 +108,46 @@ create policy badminton_players_delete_own
 
 
 -- ---------------------------------------------------------------------
+-- 個人設定：正取名額（8／16／24／32／40 人，每場 8 人）
+-- - 每個帳號最多一筆，owner_id 就是主鍵；沒有設定時網頁預設 32 人。
+-- - 只能讀取、新增、修改自己的設定；訪客完全不能使用。
+-- ---------------------------------------------------------------------
+create table if not exists public.badminton_settings (
+  owner_id    uuid        primary key default auth.uid()
+                          references auth.users (id) on delete cascade,
+  capacity    smallint    not null default 32
+    constraint badminton_settings_capacity_values
+      check (capacity in (8, 16, 24, 32, 40)),
+  updated_at  timestamptz not null default now()
+);
+
+comment on table public.badminton_settings is '羽球報名個人設定（正取名額）';
+
+revoke all on table public.badminton_settings from public, anon, authenticated;
+grant select on table public.badminton_settings to authenticated;
+grant insert (capacity) on table public.badminton_settings to authenticated;
+grant update (capacity, updated_at) on table public.badminton_settings to authenticated;
+
+alter table public.badminton_settings enable row level security;
+
+drop policy if exists badminton_settings_select_own on public.badminton_settings;
+create policy badminton_settings_select_own
+  on public.badminton_settings for select to authenticated
+  using (owner_id = (select auth.uid()));
+
+drop policy if exists badminton_settings_insert_own on public.badminton_settings;
+create policy badminton_settings_insert_own
+  on public.badminton_settings for insert to authenticated
+  with check (owner_id = (select auth.uid()));
+
+drop policy if exists badminton_settings_update_own on public.badminton_settings;
+create policy badminton_settings_update_own
+  on public.badminton_settings for update to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+
+-- ---------------------------------------------------------------------
 -- 收回舊版共用名單開放給訪客的權限
 -- - 舊版網頁讓任何人修改繳費狀態、刪除報名；新版不再需要。
 -- - 報修頁的讀取與新增權限不變。

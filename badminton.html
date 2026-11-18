@@ -66,6 +66,25 @@
       <button type="button" id="logoutBtn" class="secondary">登出</button>
     </section>
 
+    <section class="card" aria-labelledby="capacity-title">
+      <fieldset class="field capacity-field">
+        <legend id="capacity-title">正取名額 <span class="optional">（每場 8 人）</span></legend>
+        <div class="segmented five">
+            <input type="radio" id="cap-8" name="capacity" value="8">
+            <label for="cap-8">8 人</label>
+            <input type="radio" id="cap-16" name="capacity" value="16">
+            <label for="cap-16">16 人</label>
+            <input type="radio" id="cap-24" name="capacity" value="24">
+            <label for="cap-24">24 人</label>
+            <input type="radio" id="cap-32" name="capacity" value="32" checked>
+            <label for="cap-32">32 人</label>
+            <input type="radio" id="cap-40" name="capacity" value="40">
+            <label for="cap-40">40 人</label>
+        </div>
+      </fieldset>
+      <p id="capacityMessage" class="message" role="status" aria-live="polite"></p>
+    </section>
+
     <section class="card summary" aria-label="報名人數">
       <div class="stat">
         <span class="stat-label">正取</span>
