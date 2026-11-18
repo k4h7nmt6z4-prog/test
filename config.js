@@ -6,7 +6,7 @@ window.APP_CONFIG = {
   // Supabase 後台「Project Settings → API Keys」裡的 publishable key（sb_publishable_ 開頭）
   SUPABASE_PUBLISHABLE_KEY: "sb_publishable_c-0Zwi2lsxDYxnOh19ZxoA_SlJdgRzQ",
 
-  // 羽球報名：場數 × 每場人數 = 正取名額，超過的人排候補
+  // 羽球報名：場數 × 每場人數 = 預設正取名額（每個帳號可在頁面上改成 8／16／24／32／40 人）
   BADMINTON_COURTS: 4,
   BADMINTON_PLAYERS_PER_COURT: 8,
 };

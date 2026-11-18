@@ -213,3 +213,9 @@ button.link-btn:hover:not(:disabled) { background: none; color: var(--primary-da
 .account-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; }
 .account-bar span { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
 .account-bar strong { color: var(--text); }
+
+/* 正取名額選項：5 個按鈕 */
+.capacity-field { margin-bottom: 0; }
+.segmented.five { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.segmented.five label { padding: 12px 0; font-size: .95rem; white-space: nowrap; }
+@media (max-width: 360px) { .segmented.five label { font-size: .85rem; } }
