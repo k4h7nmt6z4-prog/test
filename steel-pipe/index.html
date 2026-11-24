@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#334155">
+  <meta name="description" content="鐵管計算：圓管、方管、矩形管的每米重、單支重、總重與總價">
+  <title>鐵管計算</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>鐵管計算</h1>
+    <p>圓管、方管、矩形管的重量與價錢</p>
+  </header>
+
+  <main>
+    <!-- 共用設定 -->
+    <section class="card" aria-labelledby="common-title">
+      <h2 id="common-title">共用設定</h2>
+      <div class="grid2">
+        <label class="field">
+          <span>材質（密度）</span>
+          <select id="material">
+            <option value="7.85" selected>碳鋼／鐵管 7.85</option>
+            <option value="7.93">不鏽鋼 304 7.93</option>
+            <option value="7.98">不鏽鋼 316 7.98</option>
+            <option value="2.71">鋁 2.71</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>單價（元／公斤）</span>
+          <input id="price" type="number" inputmode="decimal" min="0" step="0.1" placeholder="例如：32">
+        </label>
+      </div>
+    </section>
+
+    <!-- 規格清單 -->
+    <section aria-label="規格清單">
+      <div id="items"></div>
+      <button type="button" id="addBtn" class="add-btn">＋ 新增一種規格</button>
+    </section>
+
+    <!-- 合計 -->
+    <section class="card total-card" aria-labelledby="total-title">
+      <h2 id="total-title">合計</h2>
+      <dl class="totals">
+        <div><dt>總支數</dt><dd id="totalPcs">0 支</dd></div>
+        <div><dt>總長度</dt><dd id="totalLen">0 公尺</dd></div>
+        <div class="big"><dt>總重量</dt><dd id="totalKg">0 公斤</dd></div>
+        <div class="big"><dt>總價</dt><dd id="totalPrice">–</dd></div>
+      </dl>
+      <div class="actions">
+        <button type="button" id="copyBtn">複製結果</button>
+        <button type="button" id="clearBtn" class="ghost">全部清除</button>
+      </div>
+      <p id="msg" class="msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <details class="card formula">
+      <summary>計算公式</summary>
+      <ul>
+        <li>圓管每米重（公斤）＝ π × 厚度 ×（外徑 − 厚度）× 密度 ÷ 1000</li>
+        <li>方管／矩形管每米重（公斤）＝（2 × 厚度 ×（寬 ＋ 高）− 4 × 厚度²）× 密度 ÷ 1000</li>
+        <li>單位：外徑、寬、高、厚度為公釐（mm），長度為公尺（m），密度為 g/cm³。</li>
+        <li>方管、矩形管以直角計算，實際產品有圓角，重量會略輕一點；實際重量以廠商資料為準。</li>
+      </ul>
+    </details>
+  </main>
+
+  <!-- 單一規格的範本 -->
+  <template id="itemTpl">
+    <article class="card item">
+      <div class="item-head">
+        <strong class="item-title">規格</strong>
+        <button type="button" class="del" aria-label="刪除這個規格">✕</button>
+      </div>
+
+      <div class="shape" role="radiogroup" aria-label="形狀">
+        <button type="button" data-shape="round" role="radio">圓管</button>
+        <button type="button" data-shape="square" role="radio">方管</button>
+        <button type="button" data-shape="rect" role="radio">矩形管</button>
+      </div>
+
+      <div class="grid2">
+        <label class="field f-preset">
+          <span>常用尺寸</span>
+          <select class="preset"></select>
+        </label>
+        <label class="field f-d">
+          <span class="lbl-d">外徑（mm）</span>
+          <input class="in-d" type="number" inputmode="decimal" min="0" step="0.1">
+        </label>
+        <label class="field f-h">
+          <span>高（mm）</span>
+          <input class="in-h" type="number" inputmode="decimal" min="0" step="0.1">
+        </label>
+        <label class="field">
+          <span>厚度（mm）</span>
+          <input class="in-t" type="number" inputmode="decimal" min="0" step="0.1">
+        </label>
+        <label class="field">
+          <span>每支長度（m）</span>
+          <input class="in-len" type="number" inputmode="decimal" min="0" step="0.1">
+        </label>
+        <label class="field">
+          <span>支數</span>
+          <input class="in-pcs" type="number" inputmode="numeric" min="0" step="1">
+        </label>
+      </div>
+
+      <dl class="result">
+        <div><dt>每米重</dt><dd class="r-kgm">–</dd></div>
+        <div><dt>單支重</dt><dd class="r-pc">–</dd></div>
+        <div><dt>小計重量</dt><dd class="r-kg">–</dd></div>
+        <div><dt>小計金額</dt><dd class="r-price">–</dd></div>
+      </dl>
+      <p class="item-err" hidden></p>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
